@@ -57,6 +57,12 @@ export function Login() {
           <p className="mt-2 text-sm text-gray-600">
             Dental Care Platform
           </p>
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-800 font-medium">Demo Accounts:</p>
+            <p className="text-xs text-blue-700">Admin: admin@smilestars.com</p>
+            <p className="text-xs text-blue-700">Dentist: dentist@smilestars.com</p>
+            <p className="text-xs text-blue-700">Password: password</p>
+          </div>
         </div>
 
         <Card>
