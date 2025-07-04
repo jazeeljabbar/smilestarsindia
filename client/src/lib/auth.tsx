@@ -26,10 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (token) {
       // Verify token and get user info
-      apiRequest('/auth/me', {
+      fetch('/api/auth/me', {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` }
       })
+        .then(res => res.json())
         .then((userData) => {
           setUser(userData);
         })
@@ -48,15 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiRequest('/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
 
-      setToken(response.token);
-      setUser(response.user);
-      localStorage.setItem('token', response.token);
+      if (!response.ok) {
+        throw new Error('Invalid credentials');
+      }
+
+      const data = await response.json();
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('token', data.token);
     } catch (error) {
       throw new Error('Invalid credentials');
     }
