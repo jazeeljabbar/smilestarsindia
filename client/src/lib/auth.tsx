@@ -30,11 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` }
       })
-        .then(res => res.json())
+        .then(async res => {
+          if (!res.ok) {
+            throw new Error('Token verification failed');
+          }
+          return res.json();
+        })
         .then((userData) => {
           setUser(userData);
         })
-        .catch(() => {
+        .catch((error) => {
+          console.warn('Token verification failed:', error);
           // Token is invalid
           localStorage.removeItem('token');
           setToken(null);
@@ -56,7 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('Invalid credentials');
+        const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
+        throw new Error(errorData.error || 'Invalid credentials');
       }
 
       const data = await response.json();
@@ -64,7 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       localStorage.setItem('token', data.token);
     } catch (error) {
-      throw new Error('Invalid credentials');
+      console.warn('Login error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Invalid credentials');
     }
   };
 
