@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Smile } from 'lucide-react';
+import { Link } from 'wouter';
+import { Smile, School, Heart, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,9 +44,9 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-12">
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
               <Smile className="w-8 h-8 text-white" />
@@ -65,11 +66,48 @@ export function Login() {
           </div>
         </div>
 
+        {/* User Type Selection Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Link href="/school-login" className="block">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-500">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <School className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">School Portal</h3>
+                <p className="text-sm text-gray-600">Register your school and coordinate dental camps</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/parent-login" className="block">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-pink-500">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-8 h-8 text-pink-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Parent Portal</h3>
+                <p className="text-sm text-gray-600">Access your child's dental reports and track progress</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card className="border-2 bg-gray-50">
+            <CardContent className="p-6 text-center">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserCog className="w-8 h-8 text-gray-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Admin/Dentist</h3>
+              <p className="text-sm text-gray-600">Use the login form below for staff access</p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Sign in to your account</CardTitle>
+            <CardTitle>Admin & Dentist Login</CardTitle>
             <CardDescription>
-              Enter your credentials to access the dental care platform
+              Enter your credentials to access the dental care management platform
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -89,6 +89,30 @@ class MemStorage implements IStorage {
       createdAt: new Date(),
     });
 
+    // Create school admin user
+    this.users.push({
+      id: this.nextId++,
+      email: "school@stmarysschool.edu.in",
+      password: "$2b$10$hash",
+      name: "St. Mary's School Admin",
+      role: "school_admin",
+      phoneNumber: "+91-9876543212",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create parent user
+    this.users.push({
+      id: this.nextId++,
+      email: "parent@example.com",
+      password: "$2b$10$hash",
+      name: "Mrs. Sunita Patel",
+      role: "parent",
+      phoneNumber: "+91-9876543213",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
     // Create sample school
     this.schools.push({
       id: this.nextId++,
