@@ -14,14 +14,20 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
 
 export function Schools() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: schools = [], isLoading } = useQuery({
     queryKey: ['/api/schools'],
-    queryFn: () => apiRequest('/schools'),
+    queryFn: async () => {
+      const response = await fetch('/api/schools', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Failed to fetch schools');
+      return response.json();
+    },
   });
 
   const form = useForm<InsertSchool>({
@@ -40,11 +46,20 @@ export function Schools() {
   });
 
   const createSchoolMutation = useMutation({
-    mutationFn: (schoolData: InsertSchool) => apiRequest('/schools', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(schoolData),
-    }),
+    mutationFn: async (schoolData: InsertSchool) => {
+      const response = await fetch('/api/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(schoolData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create school');
+      }
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
       toast({
