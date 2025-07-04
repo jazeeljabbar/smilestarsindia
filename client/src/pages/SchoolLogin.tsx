@@ -70,12 +70,6 @@ export function SchoolLogin() {
             </CardHeader>
             
             <CardContent className="p-6">
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-800 font-medium">Demo School Account:</p>
-                <p className="text-xs text-blue-700">Email: school@stmarysschool.edu.in</p>
-                <p className="text-xs text-blue-700">Password: password</p>
-              </div>
-
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField

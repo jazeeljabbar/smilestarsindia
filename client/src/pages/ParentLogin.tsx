@@ -70,12 +70,6 @@ export function ParentLogin() {
             </CardHeader>
             
             <CardContent className="p-6">
-              <div className="mb-4 p-3 bg-pink-50 rounded-lg">
-                <p className="text-xs text-pink-800 font-medium">Demo Parent Account:</p>
-                <p className="text-xs text-pink-700">Email: parent@example.com</p>
-                <p className="text-xs text-pink-700">Password: password</p>
-              </div>
-
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField

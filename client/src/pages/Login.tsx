@@ -58,11 +58,26 @@ export function Login() {
           <p className="mt-2 text-sm text-gray-600">
             Dental Care Platform
           </p>
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-800 font-medium">Demo Accounts:</p>
-            <p className="text-xs text-blue-700">Admin: admin@smilestars.com</p>
-            <p className="text-xs text-blue-700">Dentist: dentist@smilestars.com</p>
-            <p className="text-xs text-blue-700">Password: password</p>
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800 font-semibold mb-2">Demo Accounts (All use password: password):</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="text-blue-700 font-medium">Admin Portal:</p>
+                <p className="text-blue-600">admin@smilestars.com</p>
+              </div>
+              <div>
+                <p className="text-blue-700 font-medium">Dentist Portal:</p>
+                <p className="text-blue-600">dentist@smilestars.com</p>
+              </div>
+              <div>
+                <p className="text-blue-700 font-medium">School Portal:</p>
+                <p className="text-blue-600">school@stmarysschool.edu.in</p>
+              </div>
+              <div>
+                <p className="text-blue-700 font-medium">Parent Portal:</p>
+                <p className="text-blue-600">parent@example.com</p>
+              </div>
+            </div>
           </div>
         </div>
 
