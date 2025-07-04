@@ -19,7 +19,13 @@ export function Login() {
                 <p className="text-sm text-gray-600">Dental Care Platform</p>
               </div>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                const portalSection = document.getElementById('portal-access');
+                portalSection?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
               Access Portal
             </Button>
           </div>
@@ -27,8 +33,16 @@ export function Login() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative bg-gradient-to-br from-blue-50 to-indigo-100 py-16 overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?q=80&w=2070&auto=format&fit=crop" 
+            alt="Children in Indian classroom" 
+            className="w-full h-full object-cover opacity-10"
+          />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
@@ -58,7 +72,7 @@ export function Login() {
                 </div>
               </div>
             </div>
-            <div className="relative">
+            <div className="relative" id="portal-access">
               <div className="bg-white rounded-lg shadow-xl p-8">
                 <h3 className="text-2xl font-bold text-gray-900 mb-6">Access Your Portal</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -112,9 +126,48 @@ export function Login() {
         </div>
       </section>
 
-      {/* Problem-Solution Section */}
+      {/* Visual Showcase Section */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-3 gap-8 mb-16">
+            <div className="relative overflow-hidden rounded-lg shadow-lg">
+              <img 
+                src="https://images.unsplash.com/photo-1559757148-5c350d0d3c56?q=80&w=1931&auto=format&fit=crop" 
+                alt="Dental examination of child" 
+                className="w-full h-64 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              <div className="absolute bottom-4 left-4 text-white">
+                <h4 className="text-lg font-semibold">Professional Dental Care</h4>
+                <p className="text-sm opacity-90">Expert examination by qualified dentists</p>
+              </div>
+            </div>
+            <div className="relative overflow-hidden rounded-lg shadow-lg">
+              <img 
+                src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop" 
+                alt="Happy children in school" 
+                className="w-full h-64 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              <div className="absolute bottom-4 left-4 text-white">
+                <h4 className="text-lg font-semibold">School Programs</h4>
+                <p className="text-sm opacity-90">Comprehensive health education in schools</p>
+              </div>
+            </div>
+            <div className="relative overflow-hidden rounded-lg shadow-lg">
+              <img 
+                src="https://images.unsplash.com/photo-1582560469781-1965b9af903d?q=80&w=2006&auto=format&fit=crop" 
+                alt="Happy family" 
+                className="w-full h-64 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              <div className="absolute bottom-4 left-4 text-white">
+                <h4 className="text-lg font-semibold">Family Wellness</h4>
+                <p className="text-sm opacity-90">Building healthy communities together</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid lg:grid-cols-3 gap-12">
             {/* The Challenge */}
             <div className="bg-red-50 p-8 rounded-lg">
@@ -181,53 +234,101 @@ export function Login() {
       </section>
 
       {/* Regional Focus */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">Regional Focus</h3>
+            <p className="text-xl text-gray-600">Serving communities across India with comprehensive dental care programs</p>
+          </div>
+          
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-6">Regional Focus</h3>
-              <h4 className="text-xl font-semibold text-gray-700 mb-8">Regions Where We Operate</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Maharashtra</span>
+              <h4 className="text-2xl font-semibold text-gray-800 mb-8">States Where We Operate</h4>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-blue-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Maharashtra</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">25+ schools, 3,500+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Gujarat</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-green-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Gujarat</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">20+ schools, 2,800+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Karnataka</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-purple-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Karnataka</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">18+ schools, 2,200+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Tamil Nadu</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-pink-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-pink-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Tamil Nadu</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">22+ schools, 3,000+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Rajasthan</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-yellow-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Rajasthan</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">15+ schools, 1,800+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Uttar Pradesh</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-indigo-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Uttar Pradesh</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">30+ schools, 4,200+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">Madhya Pradesh</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-red-600 mr-3" />
+                    <span className="text-gray-800 font-medium">Madhya Pradesh</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">12+ schools, 1,500+ students</p>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-gray-700">West Bengal</span>
+                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 text-teal-600 mr-3" />
+                    <span className="text-gray-800 font-medium">West Bengal</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 ml-8">8+ schools, 1,200+ students</p>
+                </div>
+              </div>
+              <div className="mt-8 p-6 bg-blue-50 rounded-lg">
+                <div className="text-center">
+                  <h5 className="text-2xl font-bold text-blue-800">150+ Schools</h5>
+                  <p className="text-blue-600 mt-1">Across 8 Indian States</p>
+                  <div className="mt-4 flex justify-center space-x-8 text-sm">
+                    <div>
+                      <span className="text-2xl font-bold text-blue-600">20,000+</span>
+                      <p className="text-gray-600">Students Reached</p>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-bold text-green-600">95%</span>
+                      <p className="text-gray-600">Coverage Rate</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-100 rounded-lg p-8">
-              <div className="aspect-square bg-blue-100 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin className="w-24 h-24 text-blue-600 mx-auto mb-4" />
-                  <h4 className="text-2xl font-bold text-gray-900">8 States</h4>
-                  <p className="text-gray-600">Pan-India Coverage</p>
+            <div className="relative">
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <img 
+                  src="https://images.unsplash.com/photo-1524492412937-b28074a5d7da?q=80&w=2071&auto=format&fit=crop" 
+                  alt="Map of India showing our reach across states" 
+                  className="w-full h-96 object-contain rounded-lg"
+                />
+                <div className="absolute top-4 right-4 bg-white/90 p-3 rounded-lg shadow-sm">
+                  <h6 className="font-semibold text-gray-800 text-sm">Pan-India Presence</h6>
+                  <p className="text-xs text-gray-600 mt-1">Expanding dental care access</p>
                 </div>
               </div>
             </div>
@@ -242,7 +343,13 @@ export function Login() {
           <p className="text-xl text-blue-100 mb-8">
             Your support for dental health awareness can significantly contribute to improving the oral health outcomes of children across India. Join us in this vital healthcare initiative.
           </p>
-          <Button className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 text-lg">
+          <Button 
+            className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 text-lg"
+            onClick={() => {
+              const portalSection = document.getElementById('portal-access');
+              portalSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
             Get Started
           </Button>
         </div>
