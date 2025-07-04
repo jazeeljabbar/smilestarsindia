@@ -20,8 +20,8 @@ export function DentistLogin() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: 'dentist@smilestars.com',
+      password: 'password',
     },
   });
 

@@ -20,8 +20,8 @@ export function AdminLogin() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: 'admin@smilestars.com',
+      password: 'password',
     },
   });
 
