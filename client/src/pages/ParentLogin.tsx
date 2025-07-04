@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Smile, Heart, Mail, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ export function ParentLogin() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
 
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -32,6 +33,8 @@ export function ParentLogin() {
         title: 'Welcome to Parent Portal',
         description: 'You can now view your child\'s dental health information.',
       });
+      // Redirect to parent portal dashboard after successful login
+      setLocation('/parent-portal');
     } catch (error) {
       toast({
         title: 'Login Failed',

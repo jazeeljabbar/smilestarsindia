@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Stethoscope, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ export function DentistLogin() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
 
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -32,6 +33,8 @@ export function DentistLogin() {
         title: "Welcome to Dentist Portal",
         description: "You have successfully signed in.",
       });
+      // Redirect to dashboard after successful login
+      setLocation('/dashboard');
     } catch (error) {
       toast({
         title: "Error",
