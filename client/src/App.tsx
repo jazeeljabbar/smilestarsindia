@@ -38,6 +38,20 @@ function AppRoutes() {
       <Route path="/admin-login" component={AdminLogin} />
       <Route path="/dentist-login" component={DentistLogin} />
       
+      {/* Root route - show login if not authenticated */}
+      <Route path="/">
+        {() => {
+          if (!user) {
+            return <Login />;
+          }
+          return (
+            <Layout>
+              <Dashboard />
+            </Layout>
+          );
+        }}
+      </Route>
+      
       {/* Protected routes */}
       <Route>
         {() => {
@@ -48,7 +62,6 @@ function AppRoutes() {
           return (
             <Layout>
               <Switch>
-                <Route path="/" component={Dashboard} />
                 <Route path="/dashboard" component={Dashboard} />
                 <Route path="/schools" component={Schools} />
                 <Route path="/camps" component={Camps} />
