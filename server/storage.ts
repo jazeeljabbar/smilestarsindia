@@ -114,8 +114,9 @@ class MemStorage implements IStorage {
     });
 
     // Create sample school
+    const schoolId = this.nextId++;
     this.schools.push({
-      id: this.nextId++,
+      id: schoolId,
       name: "St. Mary's High School",
       address: "123 Main Street",
       city: "Mumbai",
@@ -124,8 +125,121 @@ class MemStorage implements IStorage {
       contactPerson: "Principal John",
       contactPhone: "+91-9876543212",
       contactEmail: "principal@stmarys.edu",
-      adminUserId: null,
+      adminUserId: 3, // School admin user ID
       isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create sample camp
+    const campId = this.nextId++;
+    this.camps.push({
+      id: campId,
+      name: "St. Mary's Dental Screening Camp 2025",
+      description: "Annual dental screening camp for students",
+      schoolId: schoolId,
+      startDate: new Date('2025-01-15'),
+      endDate: new Date('2025-01-17'),
+      status: "active",
+      expectedStudents: 50,
+      assignedDentistId: 2, // Dr. Priya Patel
+      createdBy: 1, // Admin
+      createdAt: new Date(),
+    });
+
+    // Create sample students
+    const student1Id = this.nextId++;
+    this.students.push({
+      id: student1Id,
+      name: "Arjun Patel",
+      age: 12,
+      gender: "Male",
+      grade: "7th Grade",
+      rollNumber: "SM-2025-001",
+      schoolId: schoolId,
+      campId: campId,
+      parentName: "Mrs. Sunita Patel",
+      parentPhone: "+91-9876543213",
+      parentEmail: "parent@example.com",
+      parentOccupation: "Software Engineer",
+      createdAt: new Date(),
+    });
+
+    const student2Id = this.nextId++;
+    this.students.push({
+      id: student2Id,
+      name: "Priya Sharma",
+      age: 10,
+      gender: "Female", 
+      grade: "5th Grade",
+      rollNumber: "SM-2025-002",
+      schoolId: schoolId,
+      campId: campId,
+      parentName: "Mr. Raj Sharma",
+      parentPhone: "+91-9876543214",
+      parentEmail: "raj.sharma@example.com",
+      parentOccupation: "Teacher",
+      createdAt: new Date(),
+    });
+
+    const student3Id = this.nextId++;
+    this.students.push({
+      id: student3Id,
+      name: "Kavya Singh",
+      age: 8,
+      gender: "Female",
+      grade: "3rd Grade", 
+      rollNumber: "SM-2025-003",
+      schoolId: schoolId,
+      campId: campId,
+      parentName: "Mrs. Meera Singh",
+      parentPhone: "+91-9876543215",
+      parentEmail: "meera.singh@example.com",
+      parentOccupation: "Doctor",
+      createdAt: new Date(),
+    });
+
+    // Create sample screening for Arjun (parent's child)
+    const screeningId = this.nextId++;
+    this.screenings.push({
+      id: screeningId,
+      studentId: student1Id,
+      campId: campId,
+      dentistId: 2, // Dr. Priya Patel
+      teethPresent: ["11", "12", "13", "21", "22", "23", "31", "32", "33", "41", "42", "43"],
+      dentalAge: "12 years",
+      decayedTeethCount: 2,
+      missingTeethCount: 0,
+      filledTeethCount: 1,
+      crownedTeethCount: 0,
+      oralHygiene: "fair",
+      gumCondition: "mild_gingivitis",
+      tongueExamination: "Normal tongue, no abnormalities detected",
+      habits: "Thumb sucking observed",
+      fluorideApplication: true,
+      pitAndFissureSealant: false,
+      oralHealthEducation: true,
+      treatmentRequired: true,
+      emergencyTreatment: false,
+      referralRequired: true,
+      followUpRequired: "3_months",
+      treatmentPlan: "Fluoride treatment, oral hygiene education",
+      oralHealthStatus: "fair",
+      riskAssessment: "moderate",
+      preventiveMeasures: "Regular brushing, fluoride toothpaste, reduce sugary snacks",
+      completedAt: new Date(),
+      isCompleted: true,
+      createdAt: new Date(),
+    });
+
+    // Create sample report
+    this.reports.push({
+      id: this.nextId++,
+      studentId: student1Id,
+      screeningId: screeningId,
+      pdfData: "Sample PDF data for Arjun Patel's dental report",
+      sentToParent: true,
+      sentAt: new Date(),
+      generatedBy: 2, // Dr. Priya Patel
       createdAt: new Date(),
     });
   }

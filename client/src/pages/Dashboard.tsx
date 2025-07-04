@@ -22,6 +22,24 @@ export function Dashboard() {
     queryFn: () => apiRequest('/camps'),
   });
 
+  const { data: students = [] } = useQuery({
+    queryKey: ['/api/students'],
+    queryFn: () => apiRequest('/students'),
+    enabled: user?.role === 'school_admin' || user?.role === 'admin',
+  });
+
+  const { data: screenings = [] } = useQuery({
+    queryKey: ['/api/screenings'],
+    queryFn: () => apiRequest('/screenings'),
+    enabled: user?.role === 'parent' || user?.role === 'admin',
+  });
+
+  const { data: reports = [] } = useQuery({
+    queryKey: ['/api/reports'],
+    queryFn: () => apiRequest('/reports'),
+    enabled: user?.role === 'parent' || user?.role === 'admin',
+  });
+
   const statsCards = [
     {
       title: 'Total Schools',
