@@ -1,10 +1,13 @@
 import { Link } from 'wouter';
-import { Smile, School, Heart, UserCog, Stethoscope, CheckCircle, Users, MapPin, Shield } from 'lucide-react';
+import { Smile, School, Heart, UserCog, Stethoscope, CheckCircle, Users, MapPin, Shield, LogOut } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth.tsx';
 import indiaMapImage from '@assets/DF-Site-Static-Map_All-8-States-1_1751605435029.png';
 
 export function Login() {
+  const { user, logout } = useAuth();
+  
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -20,6 +23,20 @@ export function Login() {
                 <p className="text-sm text-gray-600">Dental Care Platform</p>
               </div>
             </div>
+            {user && (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">Logged in as: {user.name}</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={logout}
+                  className="flex items-center space-x-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </Button>
+              </div>
+            )}
             <Button 
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => {
