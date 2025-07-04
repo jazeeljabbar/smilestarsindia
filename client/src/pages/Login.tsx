@@ -321,44 +321,11 @@ export function Login() {
             </div>
             <div className="relative">
               <div className="bg-white rounded-lg shadow-lg p-8">
-                <div className="w-full h-96 flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 rounded-lg relative">
-                  {/* Simple SVG Map of India */}
-                  <svg viewBox="0 0 300 400" className="w-full h-full max-w-xs">
-                    {/* India outline - simplified */}
-                    <path 
-                      d="M150 50 L200 70 L220 100 L240 140 L250 180 L270 220 L260 260 L240 300 L210 340 L180 360 L150 370 L120 360 L90 340 L70 300 L50 260 L40 220 L60 180 L70 140 L90 100 L110 70 L150 50 Z" 
-                      fill="#3B82F6" 
-                      fillOpacity="0.2" 
-                      stroke="#3B82F6" 
-                      strokeWidth="2"
-                    />
-                    
-                    {/* State markers */}
-                    <circle cx="120" cy="120" r="4" fill="#DC2626" className="animate-pulse" />
-                    <text x="125" y="125" fontSize="8" fill="#374151">Maharashtra</text>
-                    
-                    <circle cx="100" cy="140" r="4" fill="#059669" className="animate-pulse" />
-                    <text x="105" y="145" fontSize="8" fill="#374151">Gujarat</text>
-                    
-                    <circle cx="140" cy="180" r="4" fill="#7C3AED" className="animate-pulse" />
-                    <text x="145" y="185" fontSize="8" fill="#374151">Karnataka</text>
-                    
-                    <circle cx="170" cy="200" r="4" fill="#EC4899" className="animate-pulse" />
-                    <text x="175" y="205" fontSize="8" fill="#374151">Tamil Nadu</text>
-                    
-                    <circle cx="80" cy="160" r="4" fill="#F59E0B" className="animate-pulse" />
-                    <text x="85" y="165" fontSize="8" fill="#374151">Rajasthan</text>
-                    
-                    <circle cx="150" cy="100" r="4" fill="#6366F1" className="animate-pulse" />
-                    <text x="155" y="105" fontSize="8" fill="#374151">UP</text>
-                    
-                    <circle cx="130" cy="130" r="4" fill="#EF4444" className="animate-pulse" />
-                    <text x="135" y="135" fontSize="8" fill="#374151">MP</text>
-                    
-                    <circle cx="180" cy="120" r="4" fill="#14B8A6" className="animate-pulse" />
-                    <text x="185" y="125" fontSize="8" fill="#374151">WB</text>
-                  </svg>
-                </div>
+                <img 
+                  src="/attached_assets/DF-Site-Static-Map_All-8-States-1_1751605435029.png" 
+                  alt="Map of India showing our presence across 8 states" 
+                  className="w-full h-96 object-contain rounded-lg"
+                />
                 <div className="absolute top-4 right-4 bg-white/90 p-3 rounded-lg shadow-sm">
                   <h6 className="font-semibold text-gray-800 text-sm">Pan-India Presence</h6>
                   <p className="text-xs text-gray-600 mt-1">8 states, 150+ schools</p>
