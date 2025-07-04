@@ -5,6 +5,8 @@ import { Layout } from '@/components/Layout';
 import { Login } from '@/pages/Login';
 import { SchoolLogin } from '@/pages/SchoolLogin';
 import { ParentLogin } from '@/pages/ParentLogin';
+import { AdminLogin } from '@/pages/AdminLogin';
+import { DentistLogin } from '@/pages/DentistLogin';
 import { Dashboard } from '@/pages/Dashboard';
 import { Schools } from '@/pages/Schools';
 import { Camps } from '@/pages/Camps';
@@ -33,6 +35,8 @@ function AppRoutes() {
       <Route path="/login" component={Login} />
       <Route path="/school-login" component={SchoolLogin} />
       <Route path="/parent-login" component={ParentLogin} />
+      <Route path="/admin-login" component={AdminLogin} />
+      <Route path="/dentist-login" component={DentistLogin} />
       
       {/* Protected routes */}
       <Route>
