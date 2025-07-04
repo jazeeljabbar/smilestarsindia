@@ -1,0 +1,215 @@
+Replit Project Prompt: Smile Stars India - Preventive Dental Care Web Application
+
+Project Title: Smile Stars India - School Dental Care Platform
+
+Technologies: React (Frontend), Node.js (Backend), MongoDB (Database - suggested, but Replit might default to SQLite or offer other options. Specify if you have a strong preference.)
+
+Project Goal: Develop a comprehensive web application to streamline preventive dental care camps for school children, starting with registration, screening, and report generation.
+
+Core Features & Workflow:
+
+School Registration & Camp Scheduling:
+
+Admin/School Administrator: Ability to register new schools.
+
+Admin: Ability to schedule dental camps for registered schools, including:
+
+Camp start and end dates (1 to 7 days).
+
+Number of students expected (for planning purposes).
+
+Any specific events/requirements for the camp.
+
+Status tracking (e.g., "Planned," "Active," "Completed").
+
+Student Registration & Screening (During Camp):
+
+Dentist/School Administrator: Ability to register individual students during the camp.
+
+Capture student demographic details (Name, Age/Sex, Grade/Roll No., School Name).
+
+Link student to the current active camp.
+
+Dentist: Conduct dental screening using a digital form based on the provided "Screening Proforma." The form should include fields for:
+
+Demographic Details: (as above, pre-filled if registered)
+
+Clinical Examination Details:
+
+Teeth Present (e.g., a visual dental chart or text input)
+
+Dental Age
+
+Decayed teeth (count/specific teeth)
+
+Missing teeth (count/specific teeth)
+
+Filled teeth (count/specific teeth)
+
+Teeth with crowns (count/specific teeth)
+
+Deep grooves
+
+Stains (+ / ++ / +++) - Use radio buttons/dropdown
+
+Calculus (+ / ++ / +++) - Use radio buttons/dropdown
+
+Gingival recession
+
+Tongue examination
+
+Primate spacing
+
+Mid line diastema
+
+Delayed eruption
+
+Cross bite (Unilateral / Bilateral / Anterior / Specific Teeth? - Primary/ Permanent) - Use checkboxes/dropdowns
+
+OpenBite (Anterior / Posterior (Unilateral / Bilateral)) - Use checkboxes/dropdowns
+
+Deep bite
+
+Occlusion
+
+Canine Relationship (Primary: Class I / II /III, Permanent: Class I / II /III) - Use radio buttons/dropdowns
+
+Molar Relationship (Primary: Class I / II /III, Permanent: Class I / II /III) - Use radio buttons/dropdowns
+
+Dental Anomalies
+
+Abnormal frenal attachments
+
+Developmental defects
+
+Habits (e.g., thumb sucking, nail biting)
+
+Trauma (Type of Fracture: Ellies Class – I to IX)
+
+Immature/ mature (for trauma)
+
+Additional field for Prescriptive/Preventive Measures: A free-text area for the dentist to note down specific recommendations.
+
+Report Generation & Parent Communication:
+
+Dentist/Admin: Generate a comprehensive dental health report for each student based on their screening data.
+
+Admin: Send the generated report (e.g., as a PDF or a secure web link) to the registered parent's email address.
+
+Parent Portal: Parents can log in to view their child's dental report and any recommendations.
+
+User Roles & Permissions:
+
+Admin:
+
+Full access to all features.
+
+Register/manage schools.
+
+Schedule/manage camps.
+
+View all student data and reports.
+
+Manage user accounts (dentists, school administrators, parents).
+
+Send reports to parents.
+
+Dentist:
+
+Access to active camps they are assigned to.
+
+Register students during a camp.
+
+Conduct and submit dental screenings.
+
+View and edit screening data for students in their assigned camps.
+
+Generate individual student reports.
+
+School Administrator:
+
+Register students for their school's camps.
+
+View student lists and camp schedules for their school.
+
+View general statistics for their school's camps (e.g., number of students screened).
+
+Limited access to student screening details (e.g., summary, but not full clinical data unless explicitly granted by Admin).
+
+Parent:
+
+Secure login to view their child's dental health report.
+
+Access only to their own child's data.
+
+Technical Requirements & Considerations for Replit:
+
+Frontend (React):
+
+Use functional components and React Hooks.
+
+Implement responsive design using Tailwind CSS (or a similar utility-first CSS framework).
+
+State management (e.g., React Context API or a lightweight library like Zustand).
+
+Form handling for student registration and screening (consider libraries like Formik/React Hook Form for complex forms).
+
+UI components for tables, forms, buttons, navigation.
+
+User authentication/authorization flow (login/logout, role-based access).
+
+PDF generation on the client-side (e.g., jsPDF or a similar library) or trigger server-side generation.
+
+Backend (Node.js/Express):
+
+RESTful API design for all data interactions.
+
+User authentication and authorization (e.g., JWT for token-based authentication).
+
+Database integration (MongoDB recommended for its flexibility with schema-less data, especially for screening forms).
+
+Email service integration (e.g., Nodemailer) for sending reports.
+
+Logic for managing schools, camps, students, and screening data.
+
+Error handling and validation for API endpoints.
+
+Database (MongoDB - if applicable in Replit):
+
+Collections for users, schools, camps, students, screenings.
+
+Define appropriate schemas for each collection.
+
+Deployment: Replit's built-in deployment features should be leveraged.
+
+Initial Steps for Replit:
+
+Set up a React + Node.js template.
+
+Backend Structure:
+
+Create server.js (or app.js) for your Express server.
+
+Set up basic routes for authentication (login, register).
+
+Implement MongoDB connection (if using).
+
+Frontend Structure:
+
+Create src/App.js as the main component.
+
+Set up basic routing for different pages (Login, Dashboard, School Management, Camp Management, Student Screening, Parent Portal).
+
+Implement a simple navigation bar.
+
+User Authentication: Start with basic login/registration for different roles.
+
+School Management: Implement the UI and API for adding/viewing schools.
+
+Considerations for Replit Environment:
+
+Environment Variables: Use Replit's secrets management for sensitive information like database connection strings, API keys for email services, etc.
+
+Database Setup: If Replit doesn't offer direct MongoDB integration, you might need to use a free tier MongoDB Atlas cluster and connect remotely.
+
+Scalability: For a real-world application, consider more robust solutions, but for a Replit prototype, focus on core functionality.
