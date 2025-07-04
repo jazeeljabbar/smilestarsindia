@@ -2,6 +2,7 @@ import { Link } from 'wouter';
 import { Smile, School, Heart, UserCog, Stethoscope, CheckCircle, Users, MapPin, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import indiaMapImage from '@assets/DF-Site-Static-Map_All-8-States-1_1751605435029.png';
 
 export function Login() {
   return (
@@ -322,7 +323,7 @@ export function Login() {
             <div className="relative">
               <div className="bg-white rounded-lg shadow-lg p-8">
                 <img 
-                  src="/attached_assets/DF-Site-Static-Map_All-8-States-1_1751605435029.png" 
+                  src={indiaMapImage} 
                   alt="Map of India showing our presence across 8 states" 
                   className="w-full h-96 object-contain rounded-lg"
                 />
