@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
+import { MailService } from '@sendgrid/mail';
 import { storage } from "./storage";
 import { 
   insertUserSchema, loginSchema, insertFranchiseSchema, insertSchoolSchema, insertCampSchema,
@@ -21,7 +22,14 @@ interface AuthenticatedRequest extends Request {
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
 
-// Email configuration
+// Email configuration - Use SendGrid
+let mailService: MailService | null = null;
+if (process.env.SENDGRID_API_KEY) {
+  mailService = new MailService();
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
+// Fallback to Nodemailer for development (optional)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -29,6 +37,41 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS || 'defaultpass'
   }
 });
+
+// Email sending function
+async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@smilestars.com') {
+  if (mailService && process.env.SENDGRID_API_KEY) {
+    // Use SendGrid
+    try {
+      await mailService.send({
+        to,
+        from,
+        subject,
+        html,
+      });
+      console.log(`Email sent successfully to ${to} via SendGrid`);
+      return true;
+    } catch (error) {
+      console.error('SendGrid email error:', error);
+      throw error;
+    }
+  } else {
+    // Fallback to Nodemailer
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        html,
+      });
+      console.log(`Email sent successfully to ${to} via Nodemailer`);
+      return true;
+    } catch (error) {
+      console.error('Nodemailer email error:', error);
+      throw error;
+    }
+  }
+}
 
 // Middleware to verify JWT token
 const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -390,11 +433,10 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
     try {
       const acceptanceUrl = `${req.protocol}://${req.get('host')}/franchise/accept-agreement?token=${finalAgreementToken}`;
       
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER || process.env.GMAIL_USER || 'noreply@smilestars.com',
-        to: franchiseData.contactEmail,
-        subject: 'Welcome to Smile Stars India - Franchise Agreement',
-        html: `
+      await sendEmail(
+        franchiseData.contactEmail,
+        'Welcome to Smile Stars India - Franchise Agreement',
+        `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Welcome to Smile Stars India!</h2>
             
@@ -426,7 +468,8 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
             </p>
           </div>
         `,
-      });
+        'noreply@smilestars.com'
+      );
       
       res.status(201).json({
         id: franchise.id,
