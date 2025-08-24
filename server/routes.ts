@@ -95,7 +95,7 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
-router.post('/auth/register', async (req, res) => {
+router.post('/auth/register', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userData = insertUserSchema.parse(req.body);
     
@@ -133,6 +133,131 @@ router.get('/auth/me', authenticateToken, async (req: AuthenticatedRequest, res:
     });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// User Management routes (Admin only)
+router.get('/users', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const users = await storage.getAllUsers();
+    // Remove password from response for security
+    const safeUsers = users.map(user => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phoneNumber: user.phoneNumber,
+      isActive: user.isActive,
+      createdAt: user.createdAt
+    }));
+    res.json(safeUsers);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+router.get('/users/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Remove password from response for security
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phoneNumber: user.phoneNumber,
+      isActive: user.isActive,
+      createdAt: user.createdAt
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+router.post('/users', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userData = insertUserSchema.parse(req.body);
+    
+    // Check if user already exists
+    const existingUser = await storage.getUserByEmail(userData.email);
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const user = await storage.createUser({
+      ...userData,
+      password: hashedPassword
+    });
+
+    // Remove password from response
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phoneNumber: user.phoneNumber,
+      isActive: user.isActive,
+      createdAt: user.createdAt
+    });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid user data' });
+  }
+});
+
+router.put('/users/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const userData = req.body;
+
+    // If password is being updated, hash it
+    if (userData.password) {
+      userData.password = await bcrypt.hash(userData.password, 10);
+    }
+
+    const updatedUser = await storage.updateUser(userId, userData);
+    
+    // Remove password from response
+    res.json({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      role: updatedUser.role,
+      phoneNumber: updatedUser.phoneNumber,
+      isActive: updatedUser.isActive,
+      createdAt: updatedUser.createdAt
+    });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update user' });
+  }
+});
+
+router.delete('/users/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    
+    // Prevent admin from deleting themselves
+    if (userId === req.user!.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // For now, we'll deactivate the user instead of hard delete to maintain data integrity
+    await storage.updateUser(userId, { isActive: false });
+    
+    res.json({ message: 'User deactivated successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to delete user' });
   }
 });
 
