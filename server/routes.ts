@@ -39,7 +39,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email sending function
-async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@smilestars.com') {
+async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@example.com') {
   if (mailService && process.env.SENDGRID_API_KEY) {
     // Use SendGrid
     try {
@@ -51,15 +51,31 @@ async function sendEmail(to: string, subject: string, html: string, from: string
       });
       console.log(`Email sent successfully to ${to} via SendGrid`);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('SendGrid email error:', error);
-      throw error;
+      console.error('SendGrid error details:', error.response?.body);
+      
+      // If SendGrid fails, fall back to Nodemailer
+      console.log('Falling back to Nodemailer due to SendGrid error...');
+      try {
+        await transporter.sendMail({
+          from: 'noreply@smilestars.com',
+          to,
+          subject,
+          html,
+        });
+        console.log(`Email sent successfully to ${to} via Nodemailer (fallback)`);
+        return true;
+      } catch (fallbackError) {
+        console.error('Nodemailer fallback failed:', fallbackError);
+        throw new Error('Both SendGrid and Nodemailer failed to send email');
+      }
     }
   } else {
     // Fallback to Nodemailer
     try {
       await transporter.sendMail({
-        from,
+        from: 'noreply@smilestars.com',
         to,
         subject,
         html,
@@ -476,7 +492,6 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
             </p>
           </div>
         `,
-        'noreply@smilestars.com'
       );
       
       res.status(201).json({
@@ -497,7 +512,7 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
         contactPerson: franchise.contactPerson,
         contactEmail: franchise.contactEmail,
         agreementStatus: franchise.agreementStatus,
-        message: 'Franchise created successfully, but email delivery failed. Please contact the franchisee manually.',
+        message: 'Franchise created successfully, but email delivery failed. The system tried both SendGrid and backup email service. Please contact the franchisee manually.',
       });
     }
   } catch (error) {
