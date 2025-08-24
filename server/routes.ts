@@ -39,40 +39,27 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email sending function
-async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@hopelog.com') {
-  console.log('=== ATTEMPTING EMAIL SEND ===');
+async function sendEmail(to: string, subject: string, html: string, from: string = 'hope@hopelog.com') {
+  console.log('=== SENDING EMAIL ===');
   console.log(`To: ${to}`);
   console.log(`From: ${from}`);
   console.log(`Subject: ${subject}`);
   
   if (mailService && process.env.SENDGRID_API_KEY) {
-    // Try different common sender addresses for hopelog.com
-    const possibleSenders = [
-      'noreply@hopelog.com',
-      'admin@hopelog.com', 
-      'support@hopelog.com',
-      'no-reply@hopelog.com',
-      'system@hopelog.com'
-    ];
-    
-    for (const sender of possibleSenders) {
-      try {
-        console.log(`🔄 Trying sender: ${sender}`);
-        await mailService.send({
-          to,
-          from: sender,
-          subject,
-          html,
-        });
-        console.log(`✅ SUCCESS! Email sent to ${to} from ${sender}`);
-        return true;
-      } catch (error: any) {
-        console.log(`❌ Failed with ${sender}:`, error.response?.body?.errors?.[0]?.message || error.message);
-      }
+    try {
+      await mailService.send({
+        to,
+        from,
+        subject,
+        html,
+      });
+      console.log(`✅ Email sent successfully to ${to} via SendGrid`);
+      return true;
+    } catch (error: any) {
+      console.error('❌ SendGrid email error:', error);
+      console.error('SendGrid error details:', error.response?.body);
+      return false;
     }
-    
-    console.log('❌ All sender addresses failed. Email not sent.');
-    return false;
   } else {
     console.log('📧 No SendGrid API key configured');
     return false;
