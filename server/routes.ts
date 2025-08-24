@@ -39,7 +39,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email sending function
-async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@example.com') {
+async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@hopelog.com') {
   if (mailService && process.env.SENDGRID_API_KEY) {
     // Use SendGrid
     try {
