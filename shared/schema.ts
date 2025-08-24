@@ -27,6 +27,9 @@ export const franchises = pgTable("franchises", {
   state: text("state").notNull(),
   pincode: text("pincode"),
   franchiseeUserId: integer("franchisee_user_id"), // Link to user with franchisee role
+  agreementStatus: text("agreement_status").default("pending"), // pending, accepted, rejected
+  agreementAcceptedAt: timestamp("agreement_accepted_at"),
+  agreementToken: text("agreement_token"), // For email verification
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -61,6 +61,10 @@ export function Schools() {
     enabled: user?.role === 'admin' || user?.role === 'franchisee',
   });
 
+  // Check if there are accepted franchisees
+  const acceptedFranchises = franchises.filter((f: any) => f.agreementStatus === 'accepted');
+  const hasAcceptedFranchisees = acceptedFranchises.length > 0;
+
   // Fetch parent schools for sub-branch selection
   const { data: parentSchools = [] } = useQuery({
     queryKey: ['/api/schools'],
@@ -219,19 +223,32 @@ export function Schools() {
           </p>
         </div>
         {(user?.role === 'admin' || user?.role === 'franchisee') && (
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setEditingSchool(null);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Register School
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center space-x-2">
+            {user?.role === 'admin' && !hasAcceptedFranchisees && (
+              <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                ⚠️ Create a franchisee first to enable school registration
+              </div>
+            )}
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                setEditingSchool(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button 
+                  className={hasAcceptedFranchisees 
+                    ? "bg-green-600 hover:bg-green-700" 
+                    : "bg-gray-400 cursor-not-allowed"
+                  }
+                  disabled={!hasAcceptedFranchisees}
+                  title={!hasAcceptedFranchisees ? "Create and approve a franchisee first" : ""}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register School
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingSchool ? 'Edit School' : 'Register New School'}</DialogTitle>
               </DialogHeader>
@@ -464,8 +481,8 @@ export function Schools() {
               </Form>
             </DialogContent>
           </Dialog>
+          </div>
         )}
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {schools.map((school: any) => (
@@ -614,6 +631,7 @@ export function Schools() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

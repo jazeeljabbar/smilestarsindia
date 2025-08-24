@@ -344,9 +344,113 @@ router.get('/franchises', authenticateToken, requireRole(['admin', 'franchisee']
 router.post('/franchises', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const franchiseData = insertFranchiseSchema.parse(req.body);
-    const franchise = await storage.createFranchise(franchiseData);
-    res.status(201).json(franchise);
+    
+    // Generate random password for franchisee
+    const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    
+    // Create user account for franchisee
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+    const franchiseeUser = await storage.createUser({
+      email: franchiseData.contactEmail,
+      password: hashedPassword,
+      name: franchiseData.contactPerson,
+      role: 'franchisee',
+      phoneNumber: franchiseData.contactPhone,
+      isActive: false, // Will be activated when they accept agreement
+    });
+
+    // Generate agreement token
+    const agreementToken = jwt.sign(
+      { franchiseId: 'temp', email: franchiseData.contactEmail },
+      JWT_SECRET,
+      { expiresIn: '7d' } // 7 days to accept agreement
+    );
+
+    // Create franchise with user link and agreement token
+    const franchise = await storage.createFranchise({
+      ...franchiseData,
+      franchiseeUserId: franchiseeUser.id,
+      agreementToken,
+      agreementStatus: 'pending',
+    });
+
+    // Update the token with actual franchise ID
+    const finalAgreementToken = jwt.sign(
+      { franchiseId: franchise.id, email: franchiseData.contactEmail },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Update franchise with final token
+    await storage.updateFranchise(franchise.id, {
+      agreementToken: finalAgreementToken,
+    });
+
+    // Send welcome email with agreement link
+    try {
+      const acceptanceUrl = `${req.protocol}://${req.get('host')}/franchise/accept-agreement?token=${finalAgreementToken}`;
+      
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER || process.env.GMAIL_USER || 'noreply@smilestars.com',
+        to: franchiseData.contactEmail,
+        subject: 'Welcome to Smile Stars India - Franchise Agreement',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Welcome to Smile Stars India!</h2>
+            
+            <p>Dear ${franchiseData.contactPerson},</p>
+            
+            <p>Congratulations! You have been selected as a franchisee for the <strong>${franchiseData.region}</strong> region.</p>
+            
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #1f2937; margin-top: 0;">Your Account Details:</h3>
+              <p><strong>Email:</strong> ${franchiseData.contactEmail}</p>
+              <p><strong>Temporary Password:</strong> ${randomPassword}</p>
+              <p><strong>Franchise Region:</strong> ${franchiseData.region}</p>
+            </div>
+            
+            <p>To get started, please accept the franchise agreement by clicking the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${acceptanceUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Accept Franchise Agreement</a>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px;">
+              This link will expire in 7 days. If you have any questions, please contact our support team.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            <p style="color: #6b7280; font-size: 12px;">
+              Best regards,<br>
+              Smile Stars India Team
+            </p>
+          </div>
+        `,
+      });
+      
+      res.status(201).json({
+        id: franchise.id,
+        name: franchise.name,
+        region: franchise.region,
+        contactPerson: franchise.contactPerson,
+        contactEmail: franchise.contactEmail,
+        agreementStatus: franchise.agreementStatus,
+        message: `Franchise created successfully. Welcome email sent to ${franchiseData.contactEmail}`,
+      });
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      res.status(201).json({
+        id: franchise.id,
+        name: franchise.name,
+        region: franchise.region,
+        contactPerson: franchise.contactPerson,
+        contactEmail: franchise.contactEmail,
+        agreementStatus: franchise.agreementStatus,
+        message: 'Franchise created successfully, but email delivery failed. Please contact the franchisee manually.',
+      });
+    }
   } catch (error) {
+    console.error('Franchise creation error:', error);
     res.status(400).json({ error: 'Invalid franchise data' });
   }
 });
@@ -378,6 +482,97 @@ router.get('/franchises/:id/camps', authenticateToken, async (req: Authenticated
     res.json(camps);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch franchise camps' });
+  }
+});
+
+// Franchise agreement acceptance endpoint
+router.post('/franchise/accept-agreement', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Agreement token is required' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const { franchiseId, email } = decoded;
+
+    // Find franchise by ID and token
+    const franchise = await storage.getFranchiseById(franchiseId);
+    if (!franchise || franchise.agreementToken !== token) {
+      return res.status(400).json({ error: 'Invalid or expired agreement token' });
+    }
+
+    if (franchise.agreementStatus === 'accepted') {
+      return res.status(400).json({ error: 'Agreement already accepted' });
+    }
+
+    // Update franchise agreement status
+    await storage.updateFranchise(franchiseId, {
+      agreementStatus: 'accepted',
+      agreementAcceptedAt: new Date(),
+      agreementToken: null, // Clear the token after use
+    });
+
+    // Activate the franchisee user account
+    if (franchise.franchiseeUserId) {
+      await storage.updateUser(franchise.franchiseeUserId, {
+        isActive: true,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Franchise agreement accepted successfully',
+      franchise: {
+        id: franchise.id,
+        name: franchise.name,
+        region: franchise.region,
+        agreementStatus: 'accepted',
+      },
+    });
+  } catch (error) {
+    console.error('Agreement acceptance error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Agreement link has expired. Please contact support.' });
+    }
+    res.status(400).json({ error: 'Invalid agreement token' });
+  }
+});
+
+// Get agreement details (for frontend to display agreement page)
+router.get('/franchise/agreement/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Verify token without authenticating user
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const { franchiseId, email } = decoded;
+
+    // Find franchise
+    const franchise = await storage.getFranchiseById(franchiseId);
+    if (!franchise || franchise.agreementToken !== token) {
+      return res.status(400).json({ error: 'Invalid or expired agreement token' });
+    }
+
+    res.json({
+      franchise: {
+        id: franchise.id,
+        name: franchise.name,
+        region: franchise.region,
+        contactPerson: franchise.contactPerson,
+        contactEmail: franchise.contactEmail,
+        agreementStatus: franchise.agreementStatus,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Agreement fetch error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Agreement link has expired' });
+    }
+    res.status(400).json({ error: 'Invalid agreement token' });
   }
 });
 
