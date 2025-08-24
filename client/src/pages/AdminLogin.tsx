@@ -21,7 +21,7 @@ export function AdminLogin() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'admin@smilestars.com',
-      password: 'password',
+      password: '12345',
     },
   });
 

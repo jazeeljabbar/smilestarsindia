@@ -21,7 +21,7 @@ export function ParentLogin() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'parent@example.com',
-      password: 'password',
+      password: '12345',
     },
   });
 

@@ -21,7 +21,7 @@ export function DentistLogin() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'dentist@smilestars.com',
-      password: 'password',
+      password: '12345',
     },
   });
 

@@ -21,7 +21,7 @@ export function SchoolLogin() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'school@stmarysschool.edu.in',
-      password: 'password',
+      password: '12345',
     },
   });
 
