@@ -2,11 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Router, Route, Switch } from 'wouter';
 import { Toaster } from '@/components/ui/toaster';
 import { Layout } from '@/components/Layout';
+import { HomePage } from '@/pages/HomePage';
 import { Login } from '@/pages/Login';
-import { SchoolLogin } from '@/pages/SchoolLogin';
-import { ParentLogin } from '@/pages/ParentLogin';
-import { AdminLogin } from '@/pages/AdminLogin';
-import { DentistLogin } from '@/pages/DentistLogin';
 import { Dashboard } from '@/pages/Dashboard';
 import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
 import { Schools } from '@/pages/Schools';
@@ -36,8 +33,10 @@ function AppRoutes() {
     // Show public routes for unauthenticated users
     return (
       <Switch>
+        <Route path="/" component={HomePage} />
+        <Route path="/login" component={Login} />
         <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
-        <Route component={Login} /> {/* Default to unified login page for any route */}
+        <Route component={HomePage} /> {/* Default to homepage */}
       </Switch>
     );
   }
