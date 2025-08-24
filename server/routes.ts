@@ -194,10 +194,6 @@ const requireRole = (roles: string[]) => {
 // Auth routes
 router.post('/auth/login', async (req, res) => {
   try {
-    console.log('Login attempt with body:', JSON.stringify(req.body, null, 2));
-    console.log('Body type:', typeof req.body);
-    console.log('Email type:', typeof req.body?.email);
-    console.log('Password type:', typeof req.body?.password);
     
     const { email, password } = loginSchema.parse(req.body);
     console.log('Parsed login data:', { email, passwordLength: password?.length });
@@ -1107,6 +1103,7 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
     const students = await storage.getAllStudents();
     const screenings = await storage.getAllScreenings();
     const reports = await storage.getAllReports();
+    const franchises = await storage.getAllFranchises();
 
     const activeCamps = camps.filter(c => c.status === 'active');
     const completedScreenings = screenings.filter(s => s.isCompleted);
@@ -1116,7 +1113,8 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
       totalCamps: camps.length,
       activeCamps: activeCamps.length,
       studentsScreened: completedScreenings.length,
-      reportsGenerated: reports.length
+      reportsGenerated: reports.length,
+      totalFranchises: franchises.length
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch dashboard stats' });
