@@ -388,6 +388,14 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
   try {
     const franchiseData = insertFranchiseSchema.parse(req.body);
     
+    // Check if email already exists
+    const existingUser = await storage.getUserByEmail(franchiseData.contactEmail);
+    if (existingUser) {
+      return res.status(409).json({ 
+        error: `A user with email ${franchiseData.contactEmail} already exists. Please use a different email address.` 
+      });
+    }
+    
     // Generate random password for franchisee
     const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
     
@@ -494,7 +502,24 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
     }
   } catch (error) {
     console.error('Franchise creation error:', error);
-    res.status(400).json({ error: 'Invalid franchise data' });
+    
+    // Handle specific database errors
+    if (error.code === '23505') {
+      return res.status(409).json({ 
+        error: `Email address already exists. Please use a different email.` 
+      });
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ZodError') {
+      const issues = error.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
+      return res.status(400).json({ error: `Validation error: ${issues}` });
+    }
+    
+    // Generic error
+    res.status(500).json({ 
+      error: error.message || 'Failed to create franchise. Please check all required fields and try again.' 
+    });
   }
 });
 
