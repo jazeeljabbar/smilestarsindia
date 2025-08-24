@@ -22,6 +22,94 @@ interface AuthenticatedRequest extends Request {
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
 
+// Initialize test users if they don't exist
+async function initializeTestUsers() {
+  const testUsers = [
+    {
+      email: 'admin@smilestars.com',
+      password: '12345',
+      name: 'Admin User',
+      role: 'admin',
+      isActive: true
+    },
+    {
+      email: 'e.jazeel@gmail.com',
+      password: '12345',
+      name: 'Jazeel Franchise',
+      role: 'franchisee',
+      isActive: true
+    },
+    {
+      email: 'school@example.com',
+      password: '12345',
+      name: 'School Admin',
+      role: 'school_admin',
+      isActive: true
+    },
+    {
+      email: 'dentist@example.com',
+      password: '12345',
+      name: 'Dr. Smith',
+      role: 'dentist',
+      isActive: true
+    },
+    {
+      email: 'parent@example.com',
+      password: '12345',
+      name: 'Parent User',
+      role: 'parent',
+      isActive: true
+    }
+  ];
+
+  for (const userData of testUsers) {
+    try {
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (!existingUser) {
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        await storage.createUser({
+          ...userData,
+          password: hashedPassword
+        });
+        console.log(`Created test user: ${userData.email}`);
+      }
+    } catch (error) {
+      console.error(`Failed to create test user ${userData.email}:`, error);
+    }
+  }
+}
+
+// Initialize test users on startup
+initializeTestUsers().catch(console.error);
+
+// Create test franchise for the franchisee user
+async function initializeTestFranchise() {
+  try {
+    const franchiseeUser = await storage.getUserByEmail('e.jazeel@gmail.com');
+    if (franchiseeUser) {
+      const existingFranchises = await storage.getFranchisesByUser(franchiseeUser.id);
+      if (existingFranchises.length === 0) {
+        await storage.createFranchise({
+          name: 'Mumbai West Franchise',
+          region: 'Mumbai West',
+          contactPerson: 'Jazeel Franchise',
+          contactEmail: 'e.jazeel@gmail.com',
+          contactPhone: '+91-98765-43210',
+          address: 'Mumbai, Maharashtra',
+          agreementStatus: 'pending',
+          userId: franchiseeUser.id
+        });
+        console.log('Created test franchise for franchisee user');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to create test franchise:', error);
+  }
+}
+
+// Initialize test franchise after users
+setTimeout(() => initializeTestFranchise().catch(console.error), 1000);
+
 // Email configuration - Use SendGrid
 let mailService: MailService | null = null;
 if (process.env.SENDGRID_API_KEY) {
@@ -136,10 +224,11 @@ router.post('/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    if (error.errors) {
-      console.error('Validation errors:', error.errors);
+    if (error && typeof error === 'object' && 'errors' in error) {
+      console.error('Validation errors:', (error as any).errors);
     }
-    res.status(400).json({ error: 'Invalid request data', details: error.message });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(400).json({ error: 'Invalid request data', details: message });
   }
 });
 
