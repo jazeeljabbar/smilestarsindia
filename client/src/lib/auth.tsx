@@ -11,7 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (token: string, user: User) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -53,27 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
-        throw new Error(errorData.error || 'Invalid credentials');
-      }
-
-      const data = await response.json();
-      setToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('token', data.token);
-    } catch (error) {
-      console.warn('Login error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Invalid credentials');
-    }
+  const login = (token: string, user: User) => {
+    setToken(token);
+    setUser(user);
+    localStorage.setItem('token', token);
   };
 
   const logout = () => {

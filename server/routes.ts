@@ -194,7 +194,10 @@ const requireRole = (roles: string[]) => {
 // Auth routes
 router.post('/auth/login', async (req, res) => {
   try {
-    console.log('Login attempt with body:', req.body);
+    console.log('Login attempt with body:', JSON.stringify(req.body, null, 2));
+    console.log('Body type:', typeof req.body);
+    console.log('Email type:', typeof req.body?.email);
+    console.log('Password type:', typeof req.body?.password);
     
     const { email, password } = loginSchema.parse(req.body);
     console.log('Parsed login data:', { email, passwordLength: password?.length });
