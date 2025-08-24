@@ -97,17 +97,24 @@ const requireRole = (roles: string[]) => {
 // Auth routes
 router.post('/auth/login', async (req, res) => {
   try {
+    console.log('Login attempt with body:', req.body);
+    
     const { email, password } = loginSchema.parse(req.body);
+    console.log('Parsed login data:', { email, passwordLength: password?.length });
     
     const user = await storage.getUserByEmail(email);
     if (!user) {
+      console.log('User not found for email:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log('User found:', { id: user.id, email: user.email, role: user.role });
 
     // Check password using bcrypt
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
+      console.log('Password validation failed for user:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -117,6 +124,7 @@ router.post('/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    console.log('Login successful for user:', email);
     res.json({
       token,
       user: {
@@ -127,7 +135,11 @@ router.post('/auth/login', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(400).json({ error: 'Invalid request data' });
+    console.error('Login error:', error);
+    if (error.errors) {
+      console.error('Validation errors:', error.errors);
+    }
+    res.status(400).json({ error: 'Invalid request data', details: error.message });
   }
 });
 
