@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { School, Calendar, Users, FileText, Plus, Stethoscope } from 'lucide-react';
+import { School, Calendar, Users, FileText, Plus, Stethoscope, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -191,6 +191,16 @@ export function Dashboard() {
                 >
                   <Stethoscope className="h-4 w-4 mr-2" />
                   Start Student Screening
+                </Button>
+              )}
+              
+              {user?.role === 'admin' && (
+                <Button 
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  onClick={() => setLocation('/franchisees')}
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Create Franchisee
                 </Button>
               )}
               
