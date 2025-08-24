@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch } from 'lucide-react';
+import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch, Trash2, MoreVertical } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { insertSchoolSchema, type InsertSchool } from '@shared/schema';
@@ -22,6 +24,7 @@ export function Schools() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingSchool, setEditingSchool] = useState<any>(null);
   const [location] = useLocation();
 
   // Auto-open dialog if coming from dashboard
@@ -89,10 +92,50 @@ export function Schools() {
     },
   });
 
+  // Reset form when editing school changes
+  useEffect(() => {
+    if (editingSchool) {
+      form.reset({
+        name: editingSchool.name || '',
+        address: editingSchool.address || '',
+        city: editingSchool.city || '',
+        state: editingSchool.state || '',
+        pincode: editingSchool.pincode || '',
+        contactPerson: editingSchool.contactPerson || '',
+        contactPhone: editingSchool.contactPhone || '',
+        contactEmail: editingSchool.contactEmail || '',
+        registrationNumber: editingSchool.registrationNumber || '',
+        franchiseId: editingSchool.franchiseId || undefined,
+        hasSubBranches: editingSchool.hasSubBranches || false,
+        parentSchoolId: editingSchool.parentSchoolId || undefined,
+        isActive: editingSchool.isActive ?? true,
+      });
+    } else {
+      form.reset({
+        name: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        contactPerson: '',
+        contactPhone: '',
+        contactEmail: '',
+        registrationNumber: '',
+        franchiseId: user?.role === 'franchisee' ? franchises.find((f: any) => f.franchiseeUserId === user.id)?.id : undefined,
+        hasSubBranches: false,
+        parentSchoolId: undefined,
+        isActive: true,
+      });
+    }
+  }, [editingSchool, form, franchises, user?.role]);
+
   const createSchoolMutation = useMutation({
     mutationFn: async (schoolData: InsertSchool) => {
-      const response = await fetch('/api/schools', {
-        method: 'POST',
+      const url = editingSchool ? `/api/schools/${editingSchool.id}` : '/api/schools';
+      const method = editingSchool ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -100,7 +143,7 @@ export function Schools() {
         body: JSON.stringify(schoolData),
       });
       if (!response.ok) {
-        throw new Error('Failed to create school');
+        throw new Error(editingSchool ? 'Failed to update school' : 'Failed to create school');
       }
       return response.json();
     },
@@ -108,15 +151,45 @@ export function Schools() {
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
       toast({
         title: 'Success',
-        description: 'School registered successfully',
+        description: editingSchool ? 'School updated successfully' : 'School registered successfully',
       });
       setIsDialogOpen(false);
+      setEditingSchool(null);
       form.reset();
     },
     onError: () => {
       toast({
         title: 'Error',
-        description: 'Failed to register school',
+        description: editingSchool ? 'Failed to update school' : 'Failed to register school',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteSchoolMutation = useMutation({
+    mutationFn: async (schoolId: number) => {
+      const response = await fetch(`/api/schools/${schoolId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete school');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
+      toast({
+        title: 'Success',
+        description: 'School deleted successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete school',
         variant: 'destructive',
       });
     },
@@ -144,7 +217,12 @@ export function Schools() {
           </p>
         </div>
         {(user?.role === 'admin' || user?.role === 'franchisee') && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingSchool(null);
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-700">
                 <Plus className="h-4 w-4 mr-2" />
@@ -153,7 +231,7 @@ export function Schools() {
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Register New School</DialogTitle>
+                <DialogTitle>{editingSchool ? 'Edit School' : 'Register New School'}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -374,7 +452,10 @@ export function Schools() {
                       Cancel
                     </Button>
                     <Button type="submit" disabled={createSchoolMutation.isPending}>
-                      {createSchoolMutation.isPending ? 'Registering...' : 'Register School'}
+                      {createSchoolMutation.isPending 
+                        ? (editingSchool ? 'Updating...' : 'Registering...') 
+                        : (editingSchool ? 'Update School' : 'Register School')
+                      }
                     </Button>
                   </div>
                 </form>
@@ -410,9 +491,48 @@ export function Schools() {
                   )}
                 </div>
                 {(user?.role === 'admin' || user?.role === 'franchisee') && (
-                  <Button variant="ghost" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setEditingSchool(school);
+                        setIsDialogOpen(true);
+                      }}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit School
+                      </DropdownMenuItem>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete School
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the school
+                              "{school.name}" and all associated data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteSchoolMutation.mutate(school.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             </CardHeader>

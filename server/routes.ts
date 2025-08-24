@@ -169,6 +169,39 @@ router.get('/schools/:id', authenticateToken, async (req: AuthenticatedRequest, 
   }
 });
 
+router.put('/schools/:id', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schoolId = parseInt(req.params.id);
+    const schoolData = insertSchoolSchema.parse(req.body);
+    
+    const existingSchool = await storage.getSchoolById(schoolId);
+    if (!existingSchool) {
+      return res.status(404).json({ error: 'School not found' });
+    }
+    
+    const updatedSchool = await storage.updateSchool(schoolId, schoolData);
+    res.json(updatedSchool);
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid school data' });
+  }
+});
+
+router.delete('/schools/:id', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schoolId = parseInt(req.params.id);
+    
+    const existingSchool = await storage.getSchoolById(schoolId);
+    if (!existingSchool) {
+      return res.status(404).json({ error: 'School not found' });
+    }
+    
+    await storage.deleteSchool(schoolId);
+    res.json({ message: 'School deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete school' });
+  }
+});
+
 // Franchises routes
 router.get('/franchises', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
   try {

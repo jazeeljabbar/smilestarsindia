@@ -436,6 +436,12 @@ class MemStorage implements IStorage {
     return this.schools[index];
   }
 
+  async deleteSchool(id: number): Promise<void> {
+    const index = this.schools.findIndex(s => s.id === id);
+    if (index === -1) throw new Error("School not found");
+    this.schools.splice(index, 1);
+  }
+
   // Camps
   async createCamp(camp: InsertCamp): Promise<Camp> {
     const newCamp: Camp = {
