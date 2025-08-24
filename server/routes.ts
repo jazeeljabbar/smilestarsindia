@@ -72,9 +72,16 @@ async function initializeTestUsers() {
           password: hashedPassword
         });
         console.log(`Created test user: ${userData.email}`);
+      } else {
+        // Update existing user with correct password hash
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        await storage.updateUser(existingUser.id, {
+          password: hashedPassword
+        });
+        console.log(`Updated password for existing user: ${userData.email}`);
       }
     } catch (error) {
-      console.error(`Failed to create test user ${userData.email}:`, error);
+      console.error(`Failed to create/update test user ${userData.email}:`, error);
     }
   }
 }
@@ -96,8 +103,10 @@ async function initializeTestFranchise() {
           contactEmail: 'e.jazeel@gmail.com',
           contactPhone: '+91-98765-43210',
           address: 'Mumbai, Maharashtra',
+          city: 'Mumbai',
+          state: 'Maharashtra',
           agreementStatus: 'pending',
-          userId: franchiseeUser.id
+          franchiseeUserId: franchiseeUser.id
         });
         console.log('Created test franchise for franchisee user');
       }
