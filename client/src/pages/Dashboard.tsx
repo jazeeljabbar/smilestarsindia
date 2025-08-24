@@ -7,10 +7,12 @@ import { ScreeningForm } from '@/components/ScreeningForm';
 import { useState } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/lib/auth.tsx';
+import { useLocation } from 'wouter';
 
 export function Dashboard() {
   const { user } = useAuth();
   const [showScreeningForm, setShowScreeningForm] = useState(false);
+  const [, setLocation] = useLocation();
 
   const { data: stats } = useQuery({
     queryKey: ['/api/dashboard/stats'],
@@ -117,8 +119,8 @@ export function Dashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Recent Camps</CardTitle>
-                {(user?.role === 'admin') && (
-                  <Button>
+                {(user?.role === 'admin' || user?.role === 'franchisee') && (
+                  <Button onClick={() => setLocation('/camps')}>
                     <Plus className="h-4 w-4 mr-2" />
                     Schedule Camp
                   </Button>
@@ -192,13 +194,19 @@ export function Dashboard() {
                 </Button>
               )}
               
-              {user?.role === 'admin' && (
+              {(user?.role === 'admin' || user?.role === 'franchisee') && (
                 <>
-                  <Button className="w-full bg-green-600 hover:bg-green-700">
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => setLocation('/schools')}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Register New School
                   </Button>
-                  <Button className="w-full bg-orange-600 hover:bg-orange-700">
+                  <Button 
+                    className="w-full bg-orange-600 hover:bg-orange-700"
+                    onClick={() => setLocation('/reports')}
+                  >
                     <FileText className="h-4 w-4 mr-2" />
                     Generate Reports
                   </Button>
