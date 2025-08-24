@@ -13,6 +13,7 @@ import { Camps } from '@/pages/Camps';
 import { Students } from '@/pages/Students';
 import { Reports } from '@/pages/Reports';
 import { ParentPortal } from '@/pages/ParentPortal';
+import { FranchiseAgreement } from '@/pages/FranchiseAgreement';
 import NotFound from '@/pages/not-found';
 import { AuthProvider, useAuth } from '@/lib/auth.tsx';
 
@@ -38,6 +39,7 @@ function AppRoutes() {
         <Route path="/parent-login" component={ParentLogin} />
         <Route path="/admin-login" component={AdminLogin} />
         <Route path="/dentist-login" component={DentistLogin} />
+        <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
         <Route component={Login} /> {/* Default to login page for any other route */}
       </Switch>
     );
