@@ -1,13 +1,22 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import { storage } from "./storage";
 import { 
-  insertUserSchema, loginSchema, insertSchoolSchema, insertCampSchema,
-  insertStudentSchema, insertScreeningSchema, insertReportSchema,
+  insertUserSchema, loginSchema, insertFranchiseSchema, insertSchoolSchema, insertCampSchema,
+  insertCampApprovalSchema, insertStudentSchema, insertScreeningSchema, insertReportSchema,
   User
 } from "@shared/schema";
+
+// Extend Express Request type to include user
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+  };
+}
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
@@ -22,7 +31,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Middleware to verify JWT token
-const authenticateToken = (req: any, res: any, next: any) => {
+const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -41,8 +50,8 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 // Role-based access control
 const requireRole = (roles: string[]) => {
-  return (req: any, res: any, next: any) => {
-    if (!roles.includes(req.user.role)) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
     next();
@@ -110,9 +119,9 @@ router.post('/auth/register', async (req, res) => {
   }
 });
 
-router.get('/auth/me', authenticateToken, async (req, res) => {
+router.get('/auth/me', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = await storage.getUserById(req.user.id);
+    const user = await storage.getUserById(req.user!.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -129,7 +138,7 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
 });
 
 // Schools routes
-router.get('/schools', authenticateToken, async (req, res) => {
+router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schools = await storage.getAllSchools();
     res.json(schools);
@@ -138,7 +147,7 @@ router.get('/schools', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/schools', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/schools', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schoolData = insertSchoolSchema.parse(req.body);
     const school = await storage.createSchool(schoolData);
@@ -148,7 +157,7 @@ router.post('/schools', authenticateToken, requireRole(['admin']), async (req, r
   }
 });
 
-router.get('/schools/:id', authenticateToken, async (req, res) => {
+router.get('/schools/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const school = await storage.getSchoolById(parseInt(req.params.id));
     if (!school) {
@@ -160,12 +169,62 @@ router.get('/schools/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Franchises routes
+router.get('/franchises', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchises = await storage.getAllFranchises();
+    res.json(franchises);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch franchises' });
+  }
+});
+
+router.post('/franchises', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchiseData = insertFranchiseSchema.parse(req.body);
+    const franchise = await storage.createFranchise(franchiseData);
+    res.status(201).json(franchise);
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid franchise data' });
+  }
+});
+
+router.get('/franchises/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchise = await storage.getFranchiseById(parseInt(req.params.id));
+    if (!franchise) {
+      return res.status(404).json({ error: 'Franchise not found' });
+    }
+    res.json(franchise);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch franchise' });
+  }
+});
+
+router.get('/franchises/:id/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getSchoolsByFranchise(parseInt(req.params.id));
+    res.json(schools);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch franchise schools' });
+  }
+});
+
+router.get('/franchises/:id/camps', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const camps = await storage.getCampsByFranchise(parseInt(req.params.id));
+    res.json(camps);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch franchise camps' });
+  }
+});
+
 // Camps routes
-router.get('/camps', authenticateToken, async (req, res) => {
+router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     let camps;
-    if (req.user.role === 'dentist') {
-      camps = await storage.getCampsByDentist(req.user.id);
+    if (req.user!.role === 'dentist') {
+      camps = await storage.getCampsByDentist(req.user!.id);
     } else {
       camps = await storage.getAllCamps();
     }
@@ -192,11 +251,11 @@ router.get('/camps', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/camps', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/camps', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const campData = insertCampSchema.parse({
       ...req.body,
-      createdBy: req.user.id
+      createdBy: req.user!.id
     });
     const camp = await storage.createCamp(campData);
     res.status(201).json(camp);
@@ -205,7 +264,7 @@ router.post('/camps', authenticateToken, requireRole(['admin']), async (req, res
   }
 });
 
-router.get('/camps/:id', authenticateToken, async (req, res) => {
+router.get('/camps/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const camp = await storage.getCampById(parseInt(req.params.id));
     if (!camp) {
@@ -215,20 +274,95 @@ router.get('/camps/:id', authenticateToken, async (req, res) => {
     const school = await storage.getSchoolById(camp.schoolId);
     const students = await storage.getStudentsByCamp(camp.id);
     const screenings = await storage.getScreeningsByCamp(camp.id);
+    const approval = await storage.getCampApprovalByCamp(camp.id);
 
     res.json({
       ...camp,
       school,
       students,
-      screenings
+      screenings,
+      approval
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch camp' });
   }
 });
 
+// Camp Approval routes
+router.get('/camp-approvals', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const approvals = await storage.getAllCampApprovals();
+    
+    // Enhance with camp and school information
+    const enhancedApprovals = await Promise.all(
+      approvals.map(async (approval) => {
+        const camp = await storage.getCampById(approval.campId);
+        const school = camp ? await storage.getSchoolById(camp.schoolId) : null;
+        return {
+          ...approval,
+          camp,
+          school
+        };
+      })
+    );
+
+    res.json(enhancedApprovals);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch camp approvals' });
+  }
+});
+
+router.post('/camp-approvals', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const approvalData = insertCampApprovalSchema.parse({
+      ...req.body,
+      submittedBy: req.user!.id
+    });
+    const approval = await storage.createCampApproval(approvalData);
+    res.status(201).json(approval);
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid approval data' });
+  }
+});
+
+router.put('/camp-approvals/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const approval = await storage.updateCampApproval(
+      parseInt(req.params.id),
+      {
+        ...req.body,
+        reviewedBy: req.user!.id,
+        reviewedAt: new Date()
+      }
+    );
+    res.json(approval);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update approval' });
+  }
+});
+
+router.get('/camp-approvals/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const approval = await storage.getCampApprovalById(parseInt(req.params.id));
+    if (!approval) {
+      return res.status(404).json({ error: 'Camp approval not found' });
+    }
+    
+    const camp = await storage.getCampById(approval.campId);
+    const school = camp ? await storage.getSchoolById(camp.schoolId) : null;
+    
+    res.json({
+      ...approval,
+      camp,
+      school
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch camp approval' });
+  }
+});
+
 // Students routes
-router.get('/students', authenticateToken, async (req, res) => {
+router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { campId } = req.query;
     let students;
@@ -257,7 +391,7 @@ router.get('/students', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/students', authenticateToken, async (req, res) => {
+router.post('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const studentData = insertStudentSchema.parse(req.body);
     const student = await storage.createStudent(studentData);
@@ -268,7 +402,7 @@ router.post('/students', authenticateToken, async (req, res) => {
 });
 
 // Screenings routes
-router.get('/screenings', authenticateToken, async (req, res) => {
+router.get('/screenings', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { campId, studentId, dentistId } = req.query;
     let screenings;
@@ -278,9 +412,9 @@ router.get('/screenings', authenticateToken, async (req, res) => {
     } else if (studentId) {
       const screening = await storage.getScreeningByStudent(parseInt(studentId as string));
       screenings = screening ? [screening] : [];
-    } else if (dentistId || req.user.role === 'dentist') {
+    } else if (dentistId || req.user!.role === 'dentist') {
       screenings = await storage.getScreeningsByDentist(
-        dentistId ? parseInt(dentistId as string) : req.user.id
+        dentistId ? parseInt(dentistId as string) : req.user!.id
       );
     } else {
       screenings = await storage.getAllScreenings();
@@ -292,11 +426,11 @@ router.get('/screenings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/screenings', authenticateToken, requireRole(['dentist', 'admin']), async (req, res) => {
+router.post('/screenings', authenticateToken, requireRole(['dentist', 'admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const screeningData = insertScreeningSchema.parse({
       ...req.body,
-      dentistId: req.user.id
+      dentistId: req.user!.id
     });
     const screening = await storage.createScreening(screeningData);
     res.status(201).json(screening);
@@ -305,7 +439,7 @@ router.post('/screenings', authenticateToken, requireRole(['dentist', 'admin']),
   }
 });
 
-router.put('/screenings/:id', authenticateToken, requireRole(['dentist', 'admin']), async (req, res) => {
+router.put('/screenings/:id', authenticateToken, requireRole(['dentist', 'admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const screening = await storage.updateScreening(
       parseInt(req.params.id),
@@ -318,12 +452,12 @@ router.put('/screenings/:id', authenticateToken, requireRole(['dentist', 'admin'
 });
 
 // Reports routes
-router.get('/reports', authenticateToken, async (req, res) => {
+router.get('/reports', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { studentId } = req.query;
     let reports;
 
-    if (req.user.role === 'parent') {
+    if (req.user!.role === 'parent') {
       // Parents can only see their child's reports
       reports = await storage.getReportsByStudent(parseInt(studentId as string));
     } else if (studentId) {
@@ -338,11 +472,11 @@ router.get('/reports', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/reports', authenticateToken, requireRole(['dentist', 'admin']), async (req, res) => {
+router.post('/reports', authenticateToken, requireRole(['dentist', 'admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const reportData = insertReportSchema.parse({
       ...req.body,
-      generatedBy: req.user.id
+      generatedBy: req.user!.id
     });
     const report = await storage.createReport(reportData);
     res.status(201).json(report);
@@ -351,7 +485,7 @@ router.post('/reports', authenticateToken, requireRole(['dentist', 'admin']), as
   }
 });
 
-router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const report = await storage.getReportById(parseInt(req.params.id));
     if (!report) {
@@ -397,7 +531,7 @@ router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), asyn
 });
 
 // Dashboard statistics
-router.get('/dashboard/stats', authenticateToken, async (req, res) => {
+router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schools = await storage.getAllSchools();
     const camps = await storage.getAllCamps();

@@ -1,6 +1,6 @@
 import {
-  User, InsertUser, School, InsertSchool, Camp, InsertCamp,
-  Student, InsertStudent, Screening, InsertScreening, Report, InsertReport
+  User, InsertUser, Franchise, InsertFranchise, School, InsertSchool, Camp, InsertCamp,
+  CampApproval, InsertCampApproval, Student, InsertStudent, Screening, InsertScreening, Report, InsertReport
 } from "@shared/schema";
 
 export interface IStorage {
@@ -11,10 +11,18 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
 
+  // Franchises
+  createFranchise(franchise: InsertFranchise): Promise<Franchise>;
+  getAllFranchises(): Promise<Franchise[]>;
+  getFranchiseById(id: number): Promise<Franchise | null>;
+  getFranchisesByUser(userId: number): Promise<Franchise[]>;
+  updateFranchise(id: number, updates: Partial<InsertFranchise>): Promise<Franchise>;
+
   // Schools
   createSchool(school: InsertSchool): Promise<School>;
   getAllSchools(): Promise<School[]>;
   getSchoolById(id: number): Promise<School | null>;
+  getSchoolsByFranchise(franchiseId: number): Promise<School[]>;
   updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School>;
 
   // Camps
@@ -23,7 +31,15 @@ export interface IStorage {
   getCampById(id: number): Promise<Camp | null>;
   getCampsBySchool(schoolId: number): Promise<Camp[]>;
   getCampsByDentist(dentistId: number): Promise<Camp[]>;
+  getCampsByFranchise(franchiseId: number): Promise<Camp[]>;
   updateCamp(id: number, updates: Partial<InsertCamp>): Promise<Camp>;
+
+  // Camp Approvals
+  createCampApproval(approval: InsertCampApproval): Promise<CampApproval>;
+  getAllCampApprovals(): Promise<CampApproval[]>;
+  getCampApprovalById(id: number): Promise<CampApproval | null>;
+  getCampApprovalByCamp(campId: number): Promise<CampApproval | null>;
+  updateCampApproval(id: number, updates: Partial<InsertCampApproval>): Promise<CampApproval>;
 
   // Students
   createStudent(student: InsertStudent): Promise<Student>;
@@ -53,8 +69,10 @@ export interface IStorage {
 
 class MemStorage implements IStorage {
   private users: User[] = [];
+  private franchises: Franchise[] = [];
   private schools: School[] = [];
   private camps: Camp[] = [];
+  private campApprovals: CampApproval[] = [];
   private students: Student[] = [];
   private screenings: Screening[] = [];
   private reports: Report[] = [];
@@ -113,6 +131,72 @@ class MemStorage implements IStorage {
       createdAt: new Date(),
     });
 
+    // Create franchisee user
+    this.users.push({
+      id: this.nextId++,
+      email: "franchisee@smilestars.com",
+      password: "$2b$10$hash",
+      name: "Mr. Rajesh Kumar",
+      role: "franchisee",
+      phoneNumber: "+91-9876543214",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create teacher user
+    this.users.push({
+      id: this.nextId++,
+      email: "teacher@stmarys.edu",
+      password: "$2b$10$hash",
+      name: "Ms. Priya Teacher",
+      role: "teacher",
+      phoneNumber: "+91-9876543215",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create principal user
+    this.users.push({
+      id: this.nextId++,
+      email: "principal@stmarys.edu",
+      password: "$2b$10$hash",
+      name: "Dr. Principal Kumar",
+      role: "principal",
+      phoneNumber: "+91-9876543216",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create technician user
+    this.users.push({
+      id: this.nextId++,
+      email: "technician@smilestars.com",
+      password: "$2b$10$hash",
+      name: "Mr. Tech Sharma",
+      role: "technician",
+      phoneNumber: "+91-9876543217",
+      isActive: true,
+      createdAt: new Date(),
+    });
+
+    // Create sample franchise
+    const franchiseId = this.nextId++;
+    this.franchises.push({
+      id: franchiseId,
+      name: "Smile Stars Mumbai West",
+      region: "Mumbai West Zone",
+      contactPerson: "Mr. Rajesh Kumar",
+      contactEmail: "franchisee@smilestars.com",
+      contactPhone: "+91-9876543214",
+      address: "456 Business Park",
+      city: "Mumbai",
+      state: "Maharashtra",
+      pincode: "400050",
+      franchiseeUserId: 5, // Franchisee user ID
+      isActive: true,
+      createdAt: new Date(),
+    });
+
     // Create sample school
     const schoolId = this.nextId++;
     this.schools.push({
@@ -126,6 +210,10 @@ class MemStorage implements IStorage {
       contactPhone: "+91-9876543212",
       contactEmail: "principal@stmarys.edu",
       adminUserId: 3, // School admin user ID
+      franchiseId: franchiseId, // Link to franchise
+      registrationNumber: "SCHOOL123",
+      hasSubBranches: false,
+      parentSchoolId: null,
       isActive: true,
       createdAt: new Date(),
     });
@@ -211,8 +299,8 @@ class MemStorage implements IStorage {
       missingTeethCount: 0,
       filledTeethCount: 1,
       crownedTeethCount: 0,
-      oralHygiene: "fair",
-      gumCondition: "mild_gingivitis",
+      stains: "+",
+      calculus: "+",
       tongueExamination: "Normal tongue, no abnormalities detected",
       habits: "Thumb sucking observed",
       fluorideApplication: true,
@@ -249,6 +337,8 @@ class MemStorage implements IStorage {
     const newUser: User = {
       ...user,
       id: this.nextId++,
+      phoneNumber: user.phoneNumber ?? null,
+      isActive: user.isActive ?? true,
       createdAt: new Date(),
     };
     this.users.push(newUser);
@@ -274,11 +364,54 @@ class MemStorage implements IStorage {
     return this.users[index];
   }
 
+  // Franchises
+  async createFranchise(franchise: InsertFranchise): Promise<Franchise> {
+    const newFranchise: Franchise = {
+      ...franchise,
+      id: this.nextId++,
+      pincode: franchise.pincode ?? null,
+      franchiseeUserId: franchise.franchiseeUserId ?? null,
+      isActive: franchise.isActive ?? true,
+      createdAt: new Date(),
+    };
+    this.franchises.push(newFranchise);
+    return newFranchise;
+  }
+
+  async getAllFranchises(): Promise<Franchise[]> {
+    return this.franchises;
+  }
+
+  async getFranchiseById(id: number): Promise<Franchise | null> {
+    return this.franchises.find(f => f.id === id) || null;
+  }
+
+  async getFranchisesByUser(userId: number): Promise<Franchise[]> {
+    return this.franchises.filter(f => f.franchiseeUserId === userId);
+  }
+
+  async updateFranchise(id: number, updates: Partial<InsertFranchise>): Promise<Franchise> {
+    const index = this.franchises.findIndex(f => f.id === id);
+    if (index === -1) throw new Error("Franchise not found");
+    this.franchises[index] = { ...this.franchises[index], ...updates };
+    return this.franchises[index];
+  }
+
   // Schools
   async createSchool(school: InsertSchool): Promise<School> {
     const newSchool: School = {
       ...school,
       id: this.nextId++,
+      pincode: school.pincode ?? null,
+      contactPerson: school.contactPerson ?? null,
+      contactPhone: school.contactPhone ?? null,
+      contactEmail: school.contactEmail ?? null,
+      adminUserId: school.adminUserId ?? null,
+      franchiseId: school.franchiseId ?? null,
+      registrationNumber: school.registrationNumber ?? null,
+      hasSubBranches: school.hasSubBranches ?? false,
+      parentSchoolId: school.parentSchoolId ?? null,
+      isActive: school.isActive ?? true,
       createdAt: new Date(),
     };
     this.schools.push(newSchool);
@@ -293,6 +426,10 @@ class MemStorage implements IStorage {
     return this.schools.find(s => s.id === id) || null;
   }
 
+  async getSchoolsByFranchise(franchiseId: number): Promise<School[]> {
+    return this.schools.filter(s => s.franchiseId === franchiseId);
+  }
+
   async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School> {
     const index = this.schools.findIndex(s => s.id === id);
     if (index === -1) throw new Error("School not found");
@@ -305,6 +442,8 @@ class MemStorage implements IStorage {
     const newCamp: Camp = {
       ...camp,
       id: this.nextId++,
+      description: camp.description ?? null,
+      assignedDentistId: camp.assignedDentistId ?? null,
       createdAt: new Date(),
     };
     this.camps.push(newCamp);
@@ -327,6 +466,13 @@ class MemStorage implements IStorage {
     return this.camps.filter(c => c.assignedDentistId === dentistId);
   }
 
+  async getCampsByFranchise(franchiseId: number): Promise<Camp[]> {
+    // Get schools belonging to this franchise first
+    const franchiseSchools = await this.getSchoolsByFranchise(franchiseId);
+    const schoolIds = franchiseSchools.map(s => s.id);
+    return this.camps.filter(c => schoolIds.includes(c.schoolId));
+  }
+
   async updateCamp(id: number, updates: Partial<InsertCamp>): Promise<Camp> {
     const index = this.camps.findIndex(c => c.id === id);
     if (index === -1) throw new Error("Camp not found");
@@ -334,11 +480,49 @@ class MemStorage implements IStorage {
     return this.camps[index];
   }
 
+  // Camp Approvals
+  async createCampApproval(approval: InsertCampApproval): Promise<CampApproval> {
+    const newApproval: CampApproval = {
+      ...approval,
+      id: this.nextId++,
+      reviewedBy: approval.reviewedBy ?? null,
+      approvalNotes: approval.approvalNotes ?? null,
+      rejectionReason: approval.rejectionReason ?? null,
+      requiredDocuments: approval.requiredDocuments ?? null,
+      submittedDocuments: approval.submittedDocuments ?? null,
+      submittedAt: approval.submittedAt ?? null,
+      reviewedAt: approval.reviewedAt ?? null,
+      createdAt: new Date(),
+    };
+    this.campApprovals.push(newApproval);
+    return newApproval;
+  }
+
+  async getAllCampApprovals(): Promise<CampApproval[]> {
+    return this.campApprovals;
+  }
+
+  async getCampApprovalById(id: number): Promise<CampApproval | null> {
+    return this.campApprovals.find(a => a.id === id) || null;
+  }
+
+  async getCampApprovalByCamp(campId: number): Promise<CampApproval | null> {
+    return this.campApprovals.find(a => a.campId === campId) || null;
+  }
+
+  async updateCampApproval(id: number, updates: Partial<InsertCampApproval>): Promise<CampApproval> {
+    const index = this.campApprovals.findIndex(a => a.id === id);
+    if (index === -1) throw new Error("Camp approval not found");
+    this.campApprovals[index] = { ...this.campApprovals[index], ...updates };
+    return this.campApprovals[index];
+  }
+
   // Students
   async createStudent(student: InsertStudent): Promise<Student> {
     const newStudent: Student = {
       ...student,
       id: this.nextId++,
+      parentOccupation: student.parentOccupation ?? null,
       createdAt: new Date(),
     };
     this.students.push(newStudent);
@@ -373,6 +557,17 @@ class MemStorage implements IStorage {
     const newScreening: Screening = {
       ...screening,
       id: this.nextId++,
+      teethPresent: screening.teethPresent ?? null,
+      dentalAge: screening.dentalAge ?? null,
+      decayedTeethCount: screening.decayedTeethCount ?? 0,
+      decayedTeeth: screening.decayedTeeth ?? null,
+      missingTeethCount: screening.missingTeethCount ?? 0,
+      missingTeeth: screening.missingTeeth ?? null,
+      filledTeethCount: screening.filledTeethCount ?? 0,
+      filledTeeth: screening.filledTeeth ?? null,
+      crownedTeethCount: screening.crownedTeethCount ?? 0,
+      crownedTeeth: screening.crownedTeeth ?? null,
+      isCompleted: screening.isCompleted ?? false,
       createdAt: new Date(),
       completedAt: screening.isCompleted ? new Date() : null,
     };
@@ -416,6 +611,9 @@ class MemStorage implements IStorage {
     const newReport: Report = {
       ...report,
       id: this.nextId++,
+      pdfData: report.pdfData ?? null,
+      sentToParent: report.sentToParent ?? false,
+      sentAt: report.sentAt ?? null,
       createdAt: new Date(),
     };
     this.reports.push(newReport);

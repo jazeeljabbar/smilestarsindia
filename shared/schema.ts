@@ -8,8 +8,25 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
-  role: text("role").notNull(), // admin, dentist, school_admin, parent
+  role: text("role").notNull(), // admin, dentist, school_admin, parent, franchisee, teacher, principal, technician, social_media_manager
   phoneNumber: text("phone_number"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Franchises table for regional management
+export const franchises = pgTable("franchises", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  region: text("region").notNull(),
+  contactPerson: text("contact_person").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  pincode: text("pincode"),
+  franchiseeUserId: integer("franchisee_user_id"), // Link to user with franchisee role
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -26,6 +43,10 @@ export const schools = pgTable("schools", {
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
   adminUserId: integer("admin_user_id"),
+  franchiseId: integer("franchise_id"), // Link to franchise that manages this school
+  registrationNumber: text("registration_number"),
+  hasSubBranches: boolean("has_sub_branches").default(false),
+  parentSchoolId: integer("parent_school_id"), // For sub-branches
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -42,6 +63,22 @@ export const camps = pgTable("camps", {
   description: text("description"),
   assignedDentistId: integer("assigned_dentist_id"),
   createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Camp Approval Workflow table
+export const campApprovals = pgTable("camp_approvals", {
+  id: serial("id").primaryKey(),
+  campId: integer("camp_id").notNull(),
+  status: text("status").notNull(), // draft, pending_approval, approved, rejected, scheduled
+  submittedBy: integer("submitted_by").notNull(),
+  reviewedBy: integer("reviewed_by"),
+  approvalNotes: text("approval_notes"),
+  rejectionReason: text("rejection_reason"),
+  requiredDocuments: json("required_documents").$type<string[]>(),
+  submittedDocuments: json("submitted_documents").$type<string[]>(),
+  submittedAt: timestamp("submitted_at"),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -141,8 +178,10 @@ export const reports = pgTable("reports", {
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertFranchiseSchema = createInsertSchema(franchises).omit({ id: true, createdAt: true });
 export const insertSchoolSchema = createInsertSchema(schools).omit({ id: true, createdAt: true });
 export const insertCampSchema = createInsertSchema(camps).omit({ id: true, createdAt: true });
+export const insertCampApprovalSchema = createInsertSchema(campApprovals).omit({ id: true, createdAt: true });
 export const insertStudentSchema = createInsertSchema(students).omit({ id: true, createdAt: true });
 export const insertScreeningSchema = createInsertSchema(screenings).omit({ id: true, createdAt: true, completedAt: true });
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, createdAt: true });
@@ -156,10 +195,14 @@ export const loginSchema = z.object({
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Franchise = typeof franchises.$inferSelect;
+export type InsertFranchise = z.infer<typeof insertFranchiseSchema>;
 export type School = typeof schools.$inferSelect;
 export type InsertSchool = z.infer<typeof insertSchoolSchema>;
 export type Camp = typeof camps.$inferSelect;
 export type InsertCamp = z.infer<typeof insertCampSchema>;
+export type CampApproval = typeof campApprovals.$inferSelect;
+export type InsertCampApproval = z.infer<typeof insertCampApprovalSchema>;
 export type Student = typeof students.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
 export type Screening = typeof screenings.$inferSelect;
