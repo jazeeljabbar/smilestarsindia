@@ -198,7 +198,12 @@ router.delete('/schools/:id', authenticateToken, requireRole(['admin', 'franchis
     await storage.deleteSchool(schoolId);
     res.json({ message: 'School deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete school' });
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete school';
+    // Check if this is a dependency error
+    if (errorMessage.includes('Cannot delete school. It has associated')) {
+      return res.status(409).json({ error: errorMessage }); // 409 Conflict for dependency issues
+    }
+    res.status(500).json({ error: errorMessage });
   }
 });
 

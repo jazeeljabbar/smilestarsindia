@@ -175,7 +175,8 @@ export function Schools() {
         },
       });
       if (!response.ok) {
-        throw new Error('Failed to delete school');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to delete school' }));
+        throw new Error(errorData.error);
       }
       return response.json();
     },
@@ -186,11 +187,12 @@ export function Schools() {
         description: 'School deleted successfully',
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: 'Error',
-        description: 'Failed to delete school',
+        title: 'Cannot Delete School',
+        description: error.message,
         variant: 'destructive',
+        duration: 6000, // Show longer for dependency messages
       });
     },
   });

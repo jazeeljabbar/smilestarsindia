@@ -439,6 +439,23 @@ class MemStorage implements IStorage {
   async deleteSchool(id: number): Promise<void> {
     const index = this.schools.findIndex(s => s.id === id);
     if (index === -1) throw new Error("School not found");
+    
+    // Check for dependencies before deletion
+    const associatedCamps = await this.getCampsBySchool(id);
+    const associatedStudents = await this.getStudentsBySchool(id);
+    
+    const dependencies = [];
+    if (associatedCamps.length > 0) {
+      dependencies.push(`${associatedCamps.length} camp(s)`);
+    }
+    if (associatedStudents.length > 0) {
+      dependencies.push(`${associatedStudents.length} student(s)`);
+    }
+    
+    if (dependencies.length > 0) {
+      throw new Error(`Cannot delete school. It has associated ${dependencies.join(' and ')}. Please remove these dependencies first.`);
+    }
+    
     this.schools.splice(index, 1);
   }
 
