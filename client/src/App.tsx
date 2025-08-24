@@ -14,6 +14,7 @@ import { Students } from '@/pages/Students';
 import { Reports } from '@/pages/Reports';
 import { ParentPortal } from '@/pages/ParentPortal';
 import { FranchiseAgreement } from '@/pages/FranchiseAgreement';
+import { Franchisees } from '@/pages/Franchisees';
 import NotFound from '@/pages/not-found';
 import { AuthProvider, useAuth } from '@/lib/auth.tsx';
 
@@ -51,6 +52,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
+        <Route path="/franchisees" component={Franchisees} />
         <Route path="/schools" component={Schools} />
         <Route path="/camps" component={Camps} />
         <Route path="/students" component={Students} />

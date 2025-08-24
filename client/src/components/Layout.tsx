@@ -14,6 +14,7 @@ export function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: 'home' },
+    { name: 'Franchisees', href: '/franchisees', icon: 'building-2', adminOnly: true },
     { name: 'Schools', href: '/schools', icon: 'school' },
     { name: 'Camps', href: '/camps', icon: 'calendar' },
     { name: 'Students', href: '/students', icon: 'users' },
@@ -21,6 +22,11 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   const filteredNavigation = navigation.filter(item => {
+    // Admin-only items
+    if (item.adminOnly && user?.role !== 'admin') {
+      return false;
+    }
+    
     if (user?.role === 'parent') {
       return item.name === 'Reports';
     }
