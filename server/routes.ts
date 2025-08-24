@@ -377,6 +377,45 @@ router.get('/franchises', authenticateToken, requireRole(['admin', 'franchisee']
   }
 });
 
+router.get('/franchises/my-franchise', authenticateToken, requireRole(['franchisee']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchises = await storage.getFranchisesByUser(req.user.id);
+    if (franchises.length === 0) {
+      return res.status(404).json({ error: 'No franchise found for this user' });
+    }
+    res.json(franchises[0]); // Return the first franchise for this user
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch franchise data' });
+  }
+});
+
+router.post('/franchises/accept-agreement', authenticateToken, requireRole(['franchisee']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchises = await storage.getFranchisesByUser(req.user.id);
+    if (franchises.length === 0) {
+      return res.status(404).json({ error: 'No franchise found for this user' });
+    }
+    
+    const franchise = franchises[0];
+    const updatedFranchise = await storage.updateFranchise(franchise.id, {
+      agreementStatus: 'accepted',
+      agreementAcceptedAt: new Date(),
+    });
+    
+    // Also activate the user account
+    await storage.updateUser(req.user.id, {
+      isActive: true,
+    });
+    
+    res.json({
+      franchise: updatedFranchise,
+      message: 'Franchise agreement accepted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to accept agreement' });
+  }
+});
+
 router.post('/franchises', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const franchiseData = insertFranchiseSchema.parse(req.body);
@@ -432,34 +471,34 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
 
     // Send welcome email with agreement link
     try {
-      const acceptanceUrl = `${req.protocol}://${req.get('host')}/franchise/accept-agreement?token=${finalAgreementToken}`;
+      const loginUrl = `${req.protocol}://${req.get('host')}/login`;
       
       await sendEmail(
         franchiseData.contactEmail,
-        'Welcome to Smile Stars India - Franchise Agreement',
+        'Welcome to Smile Stars India - Your Account is Ready',
         `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Welcome to Smile Stars India!</h2>
             
             <p>Dear ${franchiseData.contactPerson},</p>
             
-            <p>Congratulations! You have been selected as a franchisee for the <strong>${franchiseData.region}</strong> region.</p>
+            <p>Congratulations! Your franchisee account for the <strong>${franchiseData.region}</strong> region has been created successfully.</p>
             
             <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #1f2937; margin-top: 0;">Your Account Details:</h3>
+              <h3 style="color: #1f2937; margin-top: 0;">Your Login Details:</h3>
               <p><strong>Email:</strong> ${franchiseData.contactEmail}</p>
-              <p><strong>Temporary Password:</strong> ${randomPassword}</p>
+              <p><strong>Password:</strong> 12345</p>
               <p><strong>Franchise Region:</strong> ${franchiseData.region}</p>
             </div>
             
-            <p>To get started, please accept the franchise agreement by clicking the button below:</p>
+            <p>To access your franchisee dashboard and get started, please login using the button below:</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${acceptanceUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Accept Franchise Agreement</a>
+              <a href="${loginUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Dashboard</a>
             </div>
             
             <p style="color: #6b7280; font-size: 14px;">
-              This link will expire in 7 days. If you have any questions, please contact our support team.
+              Upon first login, you will be presented with the franchise agreement to review and accept. If you have any questions, please contact our support team.
             </p>
             
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">

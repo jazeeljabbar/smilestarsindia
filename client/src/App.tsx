@@ -8,6 +8,7 @@ import { ParentLogin } from '@/pages/ParentLogin';
 import { AdminLogin } from '@/pages/AdminLogin';
 import { DentistLogin } from '@/pages/DentistLogin';
 import { Dashboard } from '@/pages/Dashboard';
+import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
 import { Schools } from '@/pages/Schools';
 import { Camps } from '@/pages/Camps';
 import { Students } from '@/pages/Students';
@@ -35,13 +36,8 @@ function AppRoutes() {
     // Show public routes for unauthenticated users
     return (
       <Switch>
-        <Route path="/login" component={Login} />
-        <Route path="/school-login" component={SchoolLogin} />
-        <Route path="/parent-login" component={ParentLogin} />
-        <Route path="/admin-login" component={AdminLogin} />
-        <Route path="/dentist-login" component={DentistLogin} />
         <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
-        <Route component={Login} /> {/* Default to login page for any other route */}
+        <Route component={Login} /> {/* Default to unified login page for any route */}
       </Switch>
     );
   }
@@ -50,8 +46,8 @@ function AppRoutes() {
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/" component={user?.role === 'franchisee' ? FranchiseeDashboard : Dashboard} />
+        <Route path="/dashboard" component={user?.role === 'franchisee' ? FranchiseeDashboard : Dashboard} />
         <Route path="/franchisees" component={Franchisees} />
         <Route path="/schools" component={Schools} />
         <Route path="/camps" component={Camps} />
