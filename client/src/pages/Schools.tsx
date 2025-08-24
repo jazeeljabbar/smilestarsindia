@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, MapPin, Phone, Mail } from 'lucide-react';
+import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { insertSchoolSchema, type InsertSchool } from '@shared/schema';
@@ -30,6 +33,31 @@ export function Schools() {
     },
   });
 
+  // Fetch franchises for selection
+  const { data: franchises = [] } = useQuery({
+    queryKey: ['/api/franchises'],
+    queryFn: async () => {
+      const response = await fetch('/api/franchises', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Failed to fetch franchises');
+      return response.json();
+    },
+    enabled: user?.role === 'admin' || user?.role === 'franchisee',
+  });
+
+  // Fetch parent schools for sub-branch selection
+  const { data: parentSchools = [] } = useQuery({
+    queryKey: ['/api/schools'],
+    queryFn: async () => {
+      const response = await fetch('/api/schools', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Failed to fetch schools');
+      return response.json();
+    },
+  });
+
   const form = useForm<InsertSchool>({
     resolver: zodResolver(insertSchoolSchema),
     defaultValues: {
@@ -41,6 +69,10 @@ export function Schools() {
       contactPerson: '',
       contactPhone: '',
       contactEmail: '',
+      registrationNumber: '',
+      franchiseId: user?.role === 'franchisee' ? franchises.find((f: any) => f.franchiseeUserId === user.id)?.id : undefined,
+      hasSubBranches: false,
+      parentSchoolId: undefined,
       isActive: true,
     },
   });
@@ -99,7 +131,7 @@ export function Schools() {
             Manage registered schools and their information
           </p>
         </div>
-        {user?.role === 'admin' && (
+        {(user?.role === 'admin' || user?.role === 'franchisee') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-700">
@@ -107,117 +139,223 @@ export function Schools() {
                 Register School
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Register New School</DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter school name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="contactPerson"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact Person</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Principal/Administrator name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Complete address" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="City" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <Input placeholder="State" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="pincode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Pincode</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Pincode" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="contactPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Phone number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="contactEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="Email address" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>School Name *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter school name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="registrationNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Registration Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="School registration number" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Franchise & Hierarchy */}
+                  {user?.role === 'admin' && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium text-gray-900">Franchise & Hierarchy</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="franchiseId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Franchise</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select franchise" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {franchises.map((franchise: any) => (
+                                    <SelectItem key={franchise.id} value={franchise.id.toString()}>
+                                      {franchise.name} - {franchise.city}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="parentSchoolId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Parent School (for sub-branches)</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select parent school (optional)" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="">No parent school</SelectItem>
+                                  {parentSchools.filter((s: any) => !s.parentSchoolId).map((school: any) => (
+                                    <SelectItem key={school.id} value={school.id.toString()}>
+                                      {school.name} - {school.city}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="hasSubBranches"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Has Sub-branches</FormLabel>
+                              <FormDescription>
+                                Check if this school has multiple branches or campuses
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value || false} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Contact Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Contact Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="contactPerson"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Person</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Principal/Administrator name" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="contactPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Phone</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Phone number" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="contactEmail"
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel>Contact Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="Email address" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Address Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel>Address *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Complete address" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="City" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="State" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="pincode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pincode</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Pincode" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -239,8 +377,27 @@ export function Schools() {
           <Card key={school.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{school.name}</CardTitle>
-                {user?.role === 'admin' && (
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {school.name}
+                    {school.parentSchoolId && (
+                      <Badge variant="outline" className="text-xs">
+                        <GitBranch className="h-3 w-3 mr-1" />
+                        Branch
+                      </Badge>
+                    )}
+                    {school.hasSubBranches && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        Multi-Branch
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {school.registrationNumber && (
+                    <p className="text-sm text-gray-500">Reg: {school.registrationNumber}</p>
+                  )}
+                </div>
+                {(user?.role === 'admin' || user?.role === 'franchisee') && (
                   <Button variant="ghost" size="sm">
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -248,6 +405,17 @@ export function Schools() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Franchise Information */}
+              {school.franchiseId && franchises.find((f: any) => f.id === school.franchiseId) && (
+                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded">
+                  <Users className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">
+                    {franchises.find((f: any) => f.id === school.franchiseId)?.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Address */}
               <div className="flex items-start space-x-2">
                 <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
                 <div className="text-sm text-gray-600">
@@ -256,6 +424,7 @@ export function Schools() {
                 </div>
               </div>
               
+              {/* Contact Information */}
               {school.contactPerson && (
                 <div className="text-sm">
                   <span className="font-medium">Contact:</span> {school.contactPerson}
@@ -275,6 +444,18 @@ export function Schools() {
                   <span className="text-sm text-gray-600">{school.contactEmail}</span>
                 </div>
               )}
+
+              {/* Status Indicator */}
+              <div className="flex justify-between items-center pt-2">
+                <Badge variant={school.isActive ? "default" : "secondary"}>
+                  {school.isActive ? "Active" : "Inactive"}
+                </Badge>
+                {school.parentSchoolId && (
+                  <span className="text-xs text-gray-500">
+                    Branch of: {parentSchools.find((p: any) => p.id === school.parentSchoolId)?.name}
+                  </span>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -290,7 +471,7 @@ export function Schools() {
             <p className="text-gray-600 mb-4">
               Get started by registering your first school for dental camps.
             </p>
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || user?.role === 'franchisee') && (
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Register First School
