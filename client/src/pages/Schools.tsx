@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -21,6 +22,17 @@ export function Schools() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [location] = useLocation();
+
+  // Auto-open dialog if coming from dashboard
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('register') === 'true') {
+      setIsDialogOpen(true);
+      // Clean up URL without causing navigation
+      window.history.replaceState({}, '', '/schools');
+    }
+  }, [location]);
 
   const { data: schools = [], isLoading } = useQuery({
     queryKey: ['/api/schools'],
@@ -213,14 +225,14 @@ export function Schools() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Parent School (for sub-branches)</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={field.value?.toString()}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : parseInt(value))} value={field.value?.toString() || "none"}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select parent school (optional)" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">No parent school</SelectItem>
+                                  <SelectItem value="none">No parent school</SelectItem>
                                   {parentSchools.filter((s: any) => !s.parentSchoolId).map((school: any) => (
                                     <SelectItem key={school.id} value={school.id.toString()}>
                                       {school.name} - {school.city}
