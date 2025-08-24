@@ -147,7 +147,7 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
   }
 });
 
-router.post('/schools', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schoolData = insertSchoolSchema.parse(req.body);
     const school = await storage.createSchool(schoolData);
@@ -170,7 +170,7 @@ router.get('/schools/:id', authenticateToken, async (req: AuthenticatedRequest, 
 });
 
 // Franchises routes
-router.get('/franchises', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/franchises', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const franchises = await storage.getAllFranchises();
     res.json(franchises);
