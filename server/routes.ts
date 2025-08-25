@@ -593,7 +593,8 @@ router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']),
   }
 });
 
-// School Admin specific routes - MUST come before general schools/:id routes
+// School Admin specific routes - MUST come before general schools/:id routes  
+console.log('🚀 Registering /schools/my-school route');
 router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('=== MY-SCHOOL API CALLED ===');
