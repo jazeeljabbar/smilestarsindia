@@ -58,8 +58,8 @@ export function Camps() {
     defaultValues: {
       name: '',
       schoolId: 0,
-      startDate: new Date(),
-      endDate: new Date(),
+      startDate: new Date(Date.now() + 86400000), // Tomorrow
+      endDate: new Date(Date.now() + 172800000), // Day after tomorrow  
       expectedStudents: 0,
       status: 'planned',
       description: '',
@@ -250,7 +250,17 @@ export function Camps() {
                               {...field}
                               min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
                               value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
-                              onChange={(e) => field.onChange(new Date(e.target.value))}
+                              onChange={(e) => {
+                                const newDate = new Date(e.target.value);
+                                field.onChange(newDate);
+                                // Auto-update end date if it's before the new start date
+                                const currentEndDate = form.getValues('endDate');
+                                if (currentEndDate < newDate) {
+                                  const nextDay = new Date(newDate);
+                                  nextDay.setDate(nextDay.getDate() + 1);
+                                  form.setValue('endDate', nextDay);
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -338,7 +348,15 @@ export function Camps() {
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createCampMutation.isPending}>
+                    <Button 
+                      type="submit" 
+                      disabled={createCampMutation.isPending}
+                      onClick={(e) => {
+                        console.log('Submit button clicked');
+                        console.log('Form valid:', form.formState.isValid);
+                        console.log('Form errors:', form.formState.errors);
+                      }}
+                    >
                       {createCampMutation.isPending ? 'Scheduling...' : 'Schedule Camp'}
                     </Button>
                   </div>
