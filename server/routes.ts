@@ -1175,10 +1175,124 @@ router.post('/camps', authenticateToken, requireRole(['admin']), async (req: Aut
       ...req.body,
       createdBy: req.user!.id
     });
+
+    // Validate that the school exists and has accepted agreement
+    const school = await storage.getSchoolById(campData.schoolId);
+    if (!school) {
+      return res.status(404).json({ error: 'School not found' });
+    }
+    
+    if (school.agreementStatus !== 'accepted') {
+      return res.status(400).json({ error: 'Cannot schedule camp for school that has not accepted agreement' });
+    }
+
+    // Validate dates are in the future
+    const now = new Date();
+    const startDate = new Date(campData.startDate);
+    const endDate = new Date(campData.endDate);
+    
+    if (startDate <= now || endDate <= now) {
+      return res.status(400).json({ error: 'Camp dates must be in the future' });
+    }
+    
+    if (endDate < startDate) {
+      return res.status(400).json({ error: 'End date must be after start date' });
+    }
+
     const camp = await storage.createCamp(campData);
-    res.status(201).json(camp);
+    
+    // Send email notifications
+    try {
+      const adminUser = await storage.getUserById(req.user!.id);
+      const franchise = school.franchiseId ? await storage.getFranchiseById(school.franchiseId) : null;
+      const schoolAdminUser = school.adminUserId ? await storage.getUserById(school.adminUserId) : null;
+      const franchiseeUser = franchise?.franchiseeUserId ? await storage.getUserById(franchise.franchiseeUserId) : null;
+
+      const formatDate = (date: Date) => {
+        return new Date(date).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      };
+
+      const emailSubject = `New Dental Camp Scheduled - ${camp.name}`;
+      const emailContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">🦷 New Dental Camp Scheduled</h2>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #1e293b; margin-top: 0;">Camp Details</h3>
+            <p><strong>Camp Name:</strong> ${camp.name}</p>
+            <p><strong>School:</strong> ${school.name}</p>
+            <p><strong>Location:</strong> ${school.city}, ${school.state}</p>
+            <p><strong>Start Date:</strong> ${formatDate(startDate)}</p>
+            <p><strong>End Date:</strong> ${formatDate(endDate)}</p>
+            <p><strong>Expected Students:</strong> ${camp.expectedStudents}</p>
+            ${camp.description ? `<p><strong>Description:</strong> ${camp.description}</p>` : ''}
+          </div>
+          
+          <p>This camp has been scheduled and is now in planning phase. All stakeholders will be notified of any updates.</p>
+          
+          <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #1e40af;">
+              <strong>Next Steps:</strong> Please coordinate with your team to ensure all preparations are completed before the camp start date.
+            </p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+          <p style="color: #64748b; font-size: 14px;">
+            This is an automated notification from Smile Stars India. 
+            For any questions, please contact your administrator.
+          </p>
+        </div>
+      `;
+
+      // Send to school admin
+      if (schoolAdminUser?.email) {
+        await sendEmail(
+          schoolAdminUser.email,
+          emailSubject,
+          emailContent,
+          'noreply@smilestars.com'
+        );
+      }
+
+      // Send to admin who scheduled the camp
+      if (adminUser?.email) {
+        await sendEmail(
+          adminUser.email,
+          `Camp Scheduled Confirmation - ${camp.name}`,
+          emailContent,
+          'noreply@smilestars.com'
+        );
+      }
+
+      // Send to franchisee
+      if (franchiseeUser?.email) {
+        await sendEmail(
+          franchiseeUser.email,
+          emailSubject,
+          emailContent,
+          'noreply@smilestars.com'
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send camp notification emails:', emailError);
+      // Don't fail the camp creation if email fails
+    }
+
+    res.status(201).json({ 
+      ...camp, 
+      message: 'Camp scheduled successfully. Notification emails sent to relevant parties.' 
+    });
   } catch (error) {
-    res.status(400).json({ error: 'Invalid camp data' });
+    console.error('Camp creation error:', error);
+    if (error.name === 'ZodError') {
+      const issues = error.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
+      return res.status(400).json({ error: `Validation error: ${issues}` });
+    }
+    res.status(500).json({ error: 'Failed to schedule camp' });
   }
 });
 

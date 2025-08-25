@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { insertCampSchema, type InsertCamp } from '@shared/schema';
+import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
@@ -34,7 +35,26 @@ export function Camps() {
   });
 
   const form = useForm<InsertCamp>({
-    resolver: zodResolver(insertCampSchema),
+    resolver: zodResolver(insertCampSchema.extend({
+      startDate: z.date().refine((date) => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return date >= tomorrow;
+      }, {
+        message: "Start date must be at least tomorrow",
+      }),
+      endDate: z.date().refine((date) => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return date >= tomorrow;
+      }, {
+        message: "End date must be at least tomorrow",
+      }),
+      schoolId: z.number().min(1, "Please select a school"),
+    }).refine((data) => data.endDate >= data.startDate, {
+      message: "End date must be after start date",
+      path: ["endDate"],
+    })),
     defaultValues: {
       name: '',
       schoolId: 0,
@@ -44,7 +64,7 @@ export function Camps() {
       status: 'planned',
       description: '',
       assignedDentistId: null,
-      createdBy: 0,
+      createdBy: user?.id || 0,
     },
   });
 
@@ -63,17 +83,33 @@ export function Camps() {
       setIsDialogOpen(false);
       form.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: 'Error',
-        description: 'Failed to schedule camp',
+        description: error.message || 'Failed to schedule camp',
         variant: 'destructive',
       });
     },
   });
 
   const onSubmit = (data: InsertCamp) => {
-    createCampMutation.mutate(data);
+    // Check if schools are available
+    if (schools.length === 0) {
+      toast({
+        title: 'No Schools Available',
+        description: 'Please register schools before scheduling camps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Ensure user ID is set
+    const campData = {
+      ...data,
+      createdBy: user?.id || 0,
+    };
+
+    createCampMutation.mutate(campData);
   };
 
   const getStatusBadge = (status: string) => {
@@ -151,11 +187,17 @@ export function Camps() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {schools.map((school: any) => (
-                                <SelectItem key={school.id} value={school.id.toString()}>
-                                  {school.name}
-                                </SelectItem>
-                              ))}
+                              {schools.length === 0 ? (
+                                <SelectItem value="0" disabled>No schools available</SelectItem>
+                              ) : (
+                                schools
+                                  .filter((school: any) => school.agreementStatus === 'accepted')
+                                  .map((school: any) => (
+                                    <SelectItem key={school.id} value={school.id.toString()}>
+                                      {school.name} - {school.city}, {school.state}
+                                    </SelectItem>
+                                  ))
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -172,6 +214,7 @@ export function Camps() {
                             <Input 
                               type="date" 
                               {...field}
+                              min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
                               value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
                               onChange={(e) => field.onChange(new Date(e.target.value))}
                             />
@@ -190,6 +233,7 @@ export function Camps() {
                             <Input 
                               type="date" 
                               {...field}
+                              min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
                               value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
                               onChange={(e) => field.onChange(new Date(e.target.value))}
                             />
@@ -248,6 +292,7 @@ export function Camps() {
                             <Textarea 
                               placeholder="Additional camp details and requirements"
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
                           <FormMessage />
