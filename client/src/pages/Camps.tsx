@@ -69,12 +69,18 @@ export function Camps() {
   });
 
   const createCampMutation = useMutation({
-    mutationFn: (campData: InsertCamp) => apiRequest('/camps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(campData),
-    }),
-    onSuccess: () => {
+    mutationFn: (campData: InsertCamp) => {
+      console.log('=== CAMP MUTATION STARTED ===');
+      console.log('Sending camp data to API:', campData);
+      return apiRequest('/camps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(campData),
+      });
+    },
+    onSuccess: (response) => {
+      console.log('=== CAMP CREATION SUCCESS ===');
+      console.log('API Response:', response);
       queryClient.invalidateQueries({ queryKey: ['/api/camps'] });
       toast({
         title: 'Success',
@@ -84,6 +90,9 @@ export function Camps() {
       form.reset();
     },
     onError: (error: any) => {
+      console.log('=== CAMP CREATION ERROR ===');
+      console.error('API Error:', error);
+      console.error('Error message:', error.message);
       toast({
         title: 'Error',
         description: error.message || 'Failed to schedule camp',
@@ -93,11 +102,31 @@ export function Camps() {
   });
 
   const onSubmit = (data: InsertCamp) => {
+    console.log('=== CAMP FORM SUBMISSION ===');
+    console.log('Form data:', data);
+    console.log('Form errors:', form.formState.errors);
+    console.log('Schools available:', schools.length);
+    console.log('Schools with accepted status:', schools.filter((school: any) => school.agreementStatus === 'accepted').length);
+    console.log('Current user:', user);
+    
     // Check if schools are available
     if (schools.length === 0) {
+      console.log('❌ No schools available');
       toast({
         title: 'No Schools Available',
         description: 'Please register schools before scheduling camps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if any schools have accepted agreements
+    const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
+    if (acceptedSchools.length === 0) {
+      console.log('❌ No schools with accepted agreements');
+      toast({
+        title: 'No Schools with Accepted Agreements',
+        description: 'Please ensure at least one school has accepted their agreement before scheduling camps.',
         variant: 'destructive',
       });
       return;
@@ -109,6 +138,8 @@ export function Camps() {
       createdBy: user?.id || 0,
     };
 
+    console.log('Final camp data:', campData);
+    console.log('Submitting camp...');
     createCampMutation.mutate(campData);
   };
 
