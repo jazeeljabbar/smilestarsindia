@@ -11,12 +11,16 @@ import { School, Camp, Student } from '@shared/schema';
 import { School as SchoolIcon, Users, Calendar, GraduationCap, FileText, CheckCircle } from 'lucide-react';
 
 export default function SchoolAdminDashboard() {
+  console.log('SchoolAdminDashboard component rendered');
   const [showAgreement, setShowAgreement] = useState(false);
 
   // Get current user's school
-  const { data: school, isLoading } = useQuery<School>({
+  const { data: school, isLoading, error } = useQuery<School>({
     queryKey: ['/api/schools/my-school'],
+    retry: false,
   });
+
+  console.log('School query state:', { school, isLoading, error });
 
   // Get camps for this school
   const { data: camps = [] } = useQuery<Camp[]>({
@@ -57,6 +61,7 @@ export default function SchoolAdminDashboard() {
   const shouldShowAgreement = school && school.agreementStatus === 'pending';
 
   if (isLoading) {
+    console.log('School data is loading...');
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
@@ -64,7 +69,19 @@ export default function SchoolAdminDashboard() {
     );
   }
 
+  if (error) {
+    console.log('School query error:', error);
+    return (
+      <div className="text-center py-12">
+        <SchoolIcon className="h-16 w-16 text-red-400 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading School</h2>
+        <p className="text-gray-600">Error: {error.message}</p>
+      </div>
+    );
+  }
+
   if (!school) {
+    console.log('No school data found');
     return (
       <div className="text-center py-12">
         <SchoolIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
