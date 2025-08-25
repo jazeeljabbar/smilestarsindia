@@ -17,6 +17,7 @@ export default function SchoolAdminDashboard() {
   // Get current user's school
   const { data: school, isLoading, error } = useQuery<School>({
     queryKey: ['/api/schools/my-school'],
+    queryFn: () => apiRequest('/schools/my-school'),
     retry: false,
   });
 
@@ -25,11 +26,13 @@ export default function SchoolAdminDashboard() {
   // Get camps for this school
   const { data: camps = [] } = useQuery<Camp[]>({
     queryKey: ['/api/camps/my-school'],
+    queryFn: () => apiRequest('/camps/my-school'),
   });
 
   // Get students for this school
   const { data: students = [] } = useQuery<Student[]>({
     queryKey: ['/api/students/my-school'],
+    queryFn: () => apiRequest('/students/my-school'),
   });
 
   // Agreement acceptance mutation
