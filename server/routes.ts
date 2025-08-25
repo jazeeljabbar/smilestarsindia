@@ -1080,12 +1080,17 @@ router.get('/school/agreement/:token', async (req, res) => {
 // School Admin specific routes
 router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('Getting schools for user ID:', req.user.id);
     const schools = await storage.getSchoolsByUser(req.user.id);
+    console.log('Found schools:', schools.length, schools);
     if (schools.length === 0) {
+      console.log('No schools found for user:', req.user.id);
       return res.status(404).json({ error: 'No school found for this user' });
     }
+    console.log('Returning school:', schools[0]);
     res.json(schools[0]); // Return the first school for this user
   } catch (error) {
+    console.error('Error fetching school data:', error);
     res.status(500).json({ error: 'Failed to fetch school data' });
   }
 });

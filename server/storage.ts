@@ -160,7 +160,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSchoolsByUser(userId: number): Promise<School[]> {
-    return await db.select().from(schools).where(eq(schools.adminUserId, userId));
+    console.log('Storage: getSchoolsByUser called with userId:', userId);
+    const result = await db.select().from(schools).where(eq(schools.adminUserId, userId));
+    console.log('Storage: Found schools:', result.length, result);
+    return result;
   }
 
   async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School> {
