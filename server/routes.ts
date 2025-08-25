@@ -165,17 +165,22 @@ async function sendEmail(to: string, subject: string, html: string, from: string
 
 // Middleware to verify JWT token
 const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  console.log('=== AUTHENTICATE TOKEN MIDDLEWARE ===');
+  console.log('Request URL:', req.url);
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.log('No token provided');
     return res.status(401).json({ error: 'Access token required' });
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
+      console.log('Token verification failed:', err);
       return res.status(403).json({ error: 'Invalid token' });
     }
+    console.log('Token verified, user:', user);
     req.user = user;
     next();
   });
@@ -184,9 +189,14 @@ const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextF
 // Role-based access control
 const requireRole = (roles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    console.log('=== REQUIRE ROLE MIDDLEWARE ===');
+    console.log('Required roles:', roles);
+    console.log('User role:', req.user?.role);
     if (!req.user || !roles.includes(req.user.role)) {
+      console.log('Role check failed - insufficient permissions');
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
+    console.log('Role check passed');
     next();
   };
 };
@@ -1081,7 +1091,8 @@ router.get('/school/agreement/:token', async (req, res) => {
 router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('=== MY-SCHOOL API CALLED ===');
-    console.log('Getting schools for user ID:', req.user.id);
+    console.log('User from middleware:', req.user);
+    console.log('Getting schools for user ID:', req.user!.id);
     const schools = await storage.getSchoolsByUser(req.user.id);
     console.log('Found schools:', schools.length, schools);
     if (schools.length === 0) {
