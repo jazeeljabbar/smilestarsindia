@@ -1080,6 +1080,7 @@ router.get('/school/agreement/:token', async (req, res) => {
 // School Admin specific routes
 router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('=== MY-SCHOOL API CALLED ===');
     console.log('Getting schools for user ID:', req.user.id);
     const schools = await storage.getSchoolsByUser(req.user.id);
     console.log('Found schools:', schools.length, schools);
@@ -1087,10 +1088,36 @@ router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']
       console.log('No schools found for user:', req.user.id);
       return res.status(404).json({ error: 'No school found for this user' });
     }
-    console.log('Returning school:', schools[0]);
-    res.json(schools[0]); // Return the first school for this user
+    console.log('About to return school:', schools[0]);
+    const school = schools[0];
+    const response = {
+      id: school.id,
+      name: school.name,
+      address: school.address,
+      city: school.city,
+      state: school.state,
+      pincode: school.pincode,
+      contactPerson: school.contactPerson,
+      contactPhone: school.contactPhone,
+      contactEmail: school.contactEmail,
+      adminUserId: school.adminUserId,
+      franchiseId: school.franchiseId,
+      registrationNumber: school.registrationNumber,
+      hasSubBranches: school.hasSubBranches,
+      parentSchoolId: school.parentSchoolId,
+      agreementStatus: school.agreementStatus,
+      agreementAcceptedAt: school.agreementAcceptedAt ? school.agreementAcceptedAt.toISOString() : null,
+      agreementToken: school.agreementToken,
+      isActive: school.isActive,
+      createdAt: school.createdAt ? school.createdAt.toISOString() : null,
+    };
+    console.log('Sending response:', response);
+    res.json(response);
+    console.log('=== RESPONSE SENT ===');
   } catch (error) {
+    console.error('=== ERROR IN MY-SCHOOL API ===');
     console.error('Error fetching school data:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Failed to fetch school data' });
   }
 });
