@@ -43,7 +43,10 @@ export default function SchoolAdminDashboard() {
       });
     },
     onSuccess: () => {
+      // Invalidate and refetch the school data
       queryClient.invalidateQueries({ queryKey: ['/api/schools/my-school'] });
+      queryClient.refetchQueries({ queryKey: ['/api/schools/my-school'] });
+      
       toast({
         title: 'Agreement Accepted',
         description: 'Your school agreement has been successfully accepted. You can now access all features.',
