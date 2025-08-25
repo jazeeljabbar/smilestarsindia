@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Mail, Phone, MapPin, Building2, Users, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Mail, Phone, MapPin, Building2, Users, CheckCircle, Clock, AlertCircle, Trash2, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -19,6 +21,7 @@ export function Franchisees() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingFranchise, setEditingFranchise] = useState<any>(null);
 
   // Only admins can access this page
   if (user?.role !== 'admin') {
@@ -80,10 +83,11 @@ export function Franchisees() {
       queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] }); // Refresh schools too
       setIsDialogOpen(false);
+      setEditingFranchise(null);
       form.reset();
       toast({
         title: 'Success',
-        description: response.message || 'Franchise created successfully',
+        description: response.message || (editingFranchise ? 'Franchise updated successfully' : 'Franchise created successfully'),
       });
     },
     onError: (error: Error) => {
@@ -95,9 +99,97 @@ export function Franchisees() {
     },
   });
 
+  const deleteFranchiseMutation = useMutation({
+    mutationFn: async (franchiseId: number) => {
+      const response = await apiRequest(`/api/franchises/${franchiseId}`, {
+        method: 'DELETE',
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
+      toast({
+        title: 'Success',
+        description: 'Franchise deleted successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Cannot Delete Franchise',
+        description: error.message,
+        variant: 'destructive',
+        duration: 6000, // Show longer for dependency messages
+      });
+    },
+  });
+
+  const updateFranchiseMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: InsertFranchise }) => {
+      const response = await apiRequest(`/api/franchises/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
+      setIsDialogOpen(false);
+      setEditingFranchise(null);
+      form.reset();
+      toast({
+        title: 'Success',
+        description: 'Franchise updated successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update franchise',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const onSubmit = (data: InsertFranchise) => {
-    createFranchiseMutation.mutate(data);
+    if (editingFranchise) {
+      updateFranchiseMutation.mutate({ id: editingFranchise.id, data });
+    } else {
+      createFranchiseMutation.mutate(data);
+    }
   };
+
+  // Set form values when editing
+  useEffect(() => {
+    if (editingFranchise) {
+      form.reset({
+        name: editingFranchise.name,
+        region: editingFranchise.region,
+        contactPerson: editingFranchise.contactPerson,
+        contactEmail: editingFranchise.contactEmail,
+        contactPhone: editingFranchise.contactPhone,
+        address: editingFranchise.address,
+        city: editingFranchise.city,
+        state: editingFranchise.state,
+        pincode: editingFranchise.pincode,
+        isActive: editingFranchise.isActive,
+      });
+    } else {
+      form.reset({
+        name: '',
+        region: '',
+        contactPerson: '',
+        contactEmail: '',
+        contactPhone: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        isActive: true,
+      });
+    }
+  }, [editingFranchise, form]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -142,7 +234,12 @@ export function Franchisees() {
             Manage franchise partners and their regional operations
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingFranchise(null);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <Plus className="h-4 w-4 mr-2" />
@@ -151,7 +248,7 @@ export function Franchisees() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Franchisee</DialogTitle>
+              <DialogTitle>{editingFranchise ? 'Edit Franchise' : 'Create New Franchisee'}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -297,8 +394,11 @@ export function Franchisees() {
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createFranchiseMutation.isPending}>
-                    {createFranchiseMutation.isPending ? 'Creating...' : 'Create Franchisee'}
+                  <Button type="submit" disabled={createFranchiseMutation.isPending || updateFranchiseMutation.isPending}>
+                    {(createFranchiseMutation.isPending || updateFranchiseMutation.isPending)
+                      ? (editingFranchise ? 'Updating...' : 'Creating...') 
+                      : (editingFranchise ? 'Update Franchise' : 'Create Franchisee')
+                    }
                   </Button>
                 </div>
               </form>
@@ -323,6 +423,48 @@ export function Franchisees() {
                 <div className="flex items-center gap-2">
                   {getStatusIcon(franchise.agreementStatus)}
                   {getStatusBadge(franchise.agreementStatus)}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setEditingFranchise(franchise);
+                        setIsDialogOpen(true);
+                      }}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Franchise
+                      </DropdownMenuItem>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Franchise
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the franchise
+                              "{franchise.name}" and all associated data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteFranchiseMutation.mutate(franchise.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>

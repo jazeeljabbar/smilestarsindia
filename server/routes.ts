@@ -812,6 +812,49 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
   }
 });
 
+router.put('/franchises/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchiseId = parseInt(req.params.id);
+    const franchiseData = insertFranchiseSchema.parse(req.body);
+    
+    const existingFranchise = await storage.getFranchiseById(franchiseId);
+    if (!existingFranchise) {
+      return res.status(404).json({ error: 'Franchise not found' });
+    }
+    
+    const updatedFranchise = await storage.updateFranchise(franchiseId, franchiseData);
+    res.json(updatedFranchise);
+  } catch (error) {
+    console.error('Franchise update error:', error);
+    if (error.name === 'ZodError') {
+      const issues = error.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
+      return res.status(400).json({ error: `Validation error: ${issues}` });
+    }
+    res.status(500).json({ error: 'Failed to update franchise' });
+  }
+});
+
+router.delete('/franchises/:id', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchiseId = parseInt(req.params.id);
+    
+    const existingFranchise = await storage.getFranchiseById(franchiseId);
+    if (!existingFranchise) {
+      return res.status(404).json({ error: 'Franchise not found' });
+    }
+    
+    await storage.deleteFranchise(franchiseId);
+    res.json({ message: 'Franchise deleted successfully' });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete franchise';
+    // Check if this is a dependency error
+    if (errorMessage.includes('Cannot delete franchise. It has associated')) {
+      return res.status(409).json({ error: errorMessage }); // 409 Conflict for dependency issues
+    }
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
 router.get('/franchises/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const franchise = await storage.getFranchiseById(parseInt(req.params.id));
