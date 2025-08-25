@@ -8,11 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { insertCampSchema, type InsertCamp } from '@shared/schema';
-import { z } from 'zod';
+import { Label } from '@/components/ui/label';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
@@ -24,6 +20,17 @@ export function Camps() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCamp, setSelectedCamp] = useState<any>(null);
 
+  // Simple form state - no complex validation
+  const [formData, setFormData] = useState({
+    name: '',
+    schoolId: '',
+    startDate: '',
+    endDate: '',
+    expectedStudents: '',
+    status: 'planned',
+    description: '',
+  });
+
   const { data: camps = [], isLoading: campsLoading } = useQuery({
     queryKey: ['/api/camps'],
     queryFn: () => apiRequest('/camps'),
@@ -34,66 +41,24 @@ export function Camps() {
     queryFn: () => apiRequest('/schools'),
   });
 
-  const form = useForm<InsertCamp>({
-    resolver: zodResolver(insertCampSchema.extend({
-      startDate: z.date().refine((date) => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return date >= tomorrow;
-      }, {
-        message: "Start date must be at least tomorrow",
-      }),
-      endDate: z.date().refine((date) => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return date >= tomorrow;
-      }, {
-        message: "End date must be at least tomorrow",
-      }),
-      schoolId: z.number().min(1, "Please select a school"),
-      expectedStudents: z.number().min(1, "Expected students must be at least 1"),
-    }).refine((data) => data.endDate >= data.startDate, {
-      message: "End date must be after start date",
-      path: ["endDate"],
-    })),
-    defaultValues: {
-      name: '',
-      schoolId: 0,
-      startDate: new Date(Date.now() + 86400000), // Tomorrow
-      endDate: new Date(Date.now() + 172800000), // Day after tomorrow  
-      expectedStudents: 50,
-      status: 'planned',
-      description: '',
-      assignedDentistId: null,
-      createdBy: user?.id || 0,
-    },
-  });
-
   const createCampMutation = useMutation({
-    mutationFn: (campData: InsertCamp) => {
-      console.log('=== CAMP MUTATION STARTED ===');
-      console.log('Sending camp data to API:', campData);
+    mutationFn: (campData: any) => {
       return apiRequest('/camps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(campData),
       });
     },
-    onSuccess: (response) => {
-      console.log('=== CAMP CREATION SUCCESS ===');
-      console.log('API Response:', response);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/camps'] });
       toast({
         title: 'Success',
         description: 'Camp scheduled successfully',
       });
       setIsDialogOpen(false);
-      form.reset();
+      resetForm();
     },
     onError: (error: any) => {
-      console.log('=== CAMP CREATION ERROR ===');
-      console.error('API Error:', error);
-      console.error('Error message:', error.message);
       toast({
         title: 'Error',
         description: error.message || 'Failed to schedule camp',
@@ -102,45 +67,54 @@ export function Camps() {
     },
   });
 
-  const onSubmit = (data: InsertCamp) => {
-    console.log('=== CAMP FORM SUBMISSION ===');
-    console.log('Form data:', data);
-    console.log('Form errors:', form.formState.errors);
-    console.log('Schools available:', schools.length);
-    console.log('Schools with accepted status:', schools.filter((school: any) => school.agreementStatus === 'accepted').length);
-    console.log('Current user:', user);
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      schoolId: '',
+      startDate: '',
+      endDate: '',
+      expectedStudents: '',
+      status: 'planned',
+      description: '',
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Check if schools are available
-    if (schools.length === 0) {
-      console.log('❌ No schools available');
+    // Basic validation
+    if (!formData.name || !formData.schoolId || !formData.startDate || !formData.endDate || !formData.expectedStudents) {
       toast({
-        title: 'No Schools Available',
-        description: 'Please register schools before scheduling camps.',
+        title: 'Validation Error',
+        description: 'Please fill in all required fields',
         variant: 'destructive',
       });
       return;
     }
 
-    // Check if any schools have accepted agreements
     const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
     if (acceptedSchools.length === 0) {
-      console.log('❌ No schools with accepted agreements');
       toast({
-        title: 'No Schools with Accepted Agreements',
-        description: 'Please ensure at least one school has accepted their agreement before scheduling camps.',
+        title: 'No Schools Available',
+        description: 'No schools with accepted agreements found',
         variant: 'destructive',
       });
       return;
     }
 
-    // Ensure user ID is set
+    // Prepare data for API
     const campData = {
-      ...data,
+      name: formData.name,
+      schoolId: parseInt(formData.schoolId),
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      expectedStudents: parseInt(formData.expectedStudents),
+      status: formData.status,
+      description: formData.description,
+      assignedDentistId: null,
       createdBy: user?.id || 0,
     };
 
-    console.log('Final camp data:', campData);
-    console.log('Submitting camp...');
     createCampMutation.mutate(campData);
   };
 
@@ -190,183 +164,117 @@ export function Camps() {
               <DialogHeader>
                 <DialogTitle>Schedule New Dental Camp</DialogTitle>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
-                  console.log('=== FORM VALIDATION FAILED ===');
-                  console.log('Validation errors:', errors);
-                  console.log('Form values:', form.getValues());
-                })} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Camp Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter camp name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="schoolId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School</FormLabel>
-                          <Select 
-                            onValueChange={(value) => field.onChange(parseInt(value))} 
-                            value={field.value > 0 ? field.value.toString() : ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select school" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {schools.length === 0 ? (
-                                <SelectItem value="0" disabled>No schools available</SelectItem>
-                              ) : (
-                                schools
-                                  .filter((school: any) => school.agreementStatus === 'accepted')
-                                  .map((school: any) => (
-                                    <SelectItem key={school.id} value={school.id.toString()}>
-                                      {school.name} - {school.city}, {school.state}
-                                    </SelectItem>
-                                  ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="date" 
-                              {...field}
-                              min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
-                              value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
-                              onChange={(e) => {
-                                const newDate = new Date(e.target.value);
-                                field.onChange(newDate);
-                                // Auto-update end date if it's before the new start date
-                                const currentEndDate = form.getValues('endDate');
-                                if (currentEndDate < newDate) {
-                                  const nextDay = new Date(newDate);
-                                  nextDay.setDate(nextDay.getDate() + 1);
-                                  form.setValue('endDate', nextDay);
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>End Date</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="date" 
-                              {...field}
-                              min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
-                              value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
-                              onChange={(e) => field.onChange(new Date(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="expectedStudents"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Expected Students</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              placeholder="Number of students"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="planned">Planned</SelectItem>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Additional camp details and requirements"
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Camp Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Enter camp name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
                     />
                   </div>
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={createCampMutation.isPending}
-                      onClick={(e) => {
-                        console.log('Submit button clicked');
-                        console.log('Form valid:', form.formState.isValid);
-                        console.log('Form errors:', form.formState.errors);
-                      }}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="schoolId">School</Label>
+                    <Select 
+                      value={formData.schoolId} 
+                      onValueChange={(value) => setFormData({ ...formData, schoolId: value })}
                     >
-                      {createCampMutation.isPending ? 'Scheduling...' : 'Schedule Camp'}
-                    </Button>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select school" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {schools
+                          .filter((school: any) => school.agreementStatus === 'accepted')
+                          .map((school: any) => (
+                            <SelectItem key={school.id} value={school.id.toString()}>
+                              {school.name} - {school.city}, {school.state}
+                            </SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
                   </div>
-                </form>
-              </Form>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      min={formData.startDate || new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expectedStudents">Expected Students</Label>
+                    <Input
+                      id="expectedStudents"
+                      type="number"
+                      placeholder="Number of students"
+                      value={formData.expectedStudents}
+                      onChange={(e) => setFormData({ ...formData, expectedStudents: e.target.value })}
+                      min="1"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="planned">Planned</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Additional camp details and requirements"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createCampMutation.isPending}>
+                    {createCampMutation.isPending ? 'Scheduling...' : 'Schedule Camp'}
+                  </Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
         )}
