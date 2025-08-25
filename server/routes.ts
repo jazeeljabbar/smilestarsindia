@@ -420,22 +420,30 @@ router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']),
   try {
     const schoolData = insertSchoolSchema.parse(req.body);
     
-    // Generate random password for school admin
-    const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    // Set standard password for school admin
+    const schoolAdminPassword = '12345';
     
     // Create user account for school admin (if contact email provided)
     let schoolAdminUser = null;
     if (schoolData.contactEmail && schoolData.contactPerson) {
       try {
-        const hashedPassword = await bcrypt.hash(randomPassword, 10);
-        schoolAdminUser = await storage.createUser({
-          email: schoolData.contactEmail,
-          password: hashedPassword,
-          name: schoolData.contactPerson,
-          role: 'school_admin',
-          phoneNumber: schoolData.contactPhone || undefined,
-          isActive: false, // Will be activated when they accept agreement
-        });
+        // Check if user already exists
+        const existingUser = await storage.getUserByEmail(schoolData.contactEmail);
+        if (existingUser) {
+          console.log(`User already exists for email: ${schoolData.contactEmail}`);
+          schoolAdminUser = existingUser;
+        } else {
+          const hashedPassword = await bcrypt.hash(schoolAdminPassword, 10);
+          schoolAdminUser = await storage.createUser({
+            email: schoolData.contactEmail,
+            password: hashedPassword,
+            name: schoolData.contactPerson,
+            role: 'school_admin',
+            phoneNumber: schoolData.contactPhone || undefined,
+            isActive: false, // Will be activated when they accept agreement
+          });
+          console.log(`Created school admin user: ${schoolData.contactEmail}`);
+        }
       } catch (userError: any) {
         // If user creation fails (e.g., email exists), continue without user
         console.warn('Failed to create school admin user:', userError.message);
@@ -488,7 +496,7 @@ router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']),
               <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="color: #1f2937; margin-top: 0;">Your School Admin Login Details:</h3>
                 <p><strong>Email:</strong> ${schoolData.contactEmail}</p>
-                <p><strong>Password:</strong> 12345</p>
+                <p><strong>Password:</strong> ${schoolAdminPassword}</p>
                 <p><strong>School:</strong> ${schoolData.name}</p>
                 <p><strong>Location:</strong> ${schoolData.city}, ${schoolData.state}</p>
               </div>
