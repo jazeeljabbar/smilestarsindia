@@ -6,6 +6,7 @@ import { HomePage } from '@/pages/HomePage';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
+import SchoolAdminDashboard from '@/pages/SchoolAdminDashboard';
 import { Schools } from '@/pages/Schools';
 import { Camps } from '@/pages/Camps';
 import { Students } from '@/pages/Students';
@@ -42,11 +43,17 @@ function AppRoutes() {
   }
 
   // Show protected routes for authenticated users
+  const getDashboardComponent = () => {
+    if (user?.role === 'franchisee') return FranchiseeDashboard;
+    if (user?.role === 'school_admin') return SchoolAdminDashboard;
+    return Dashboard;
+  };
+
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={user?.role === 'franchisee' ? FranchiseeDashboard : Dashboard} />
-        <Route path="/dashboard" component={user?.role === 'franchisee' ? FranchiseeDashboard : Dashboard} />
+        <Route path="/" component={getDashboardComponent()} />
+        <Route path="/dashboard" component={getDashboardComponent()} />
         <Route path="/franchisees" component={Franchisees} />
         <Route path="/schools" component={Schools} />
         <Route path="/camps" component={Camps} />

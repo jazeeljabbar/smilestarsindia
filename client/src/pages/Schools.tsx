@@ -78,7 +78,7 @@ export function Schools() {
   });
 
   const form = useForm<InsertSchool>({
-    resolver: zodResolver(insertSchoolSchema),
+    resolver: zodResolver(insertSchoolSchema.omit({ adminUserId: true, agreementStatus: true, agreementAcceptedAt: true, agreementToken: true })),
     defaultValues: {
       name: '',
       address: '',

@@ -419,10 +419,159 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
 router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schoolData = insertSchoolSchema.parse(req.body);
-    const school = await storage.createSchool(schoolData);
-    res.status(201).json(school);
+    
+    // Generate random password for school admin
+    const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    
+    // Create user account for school admin (if contact email provided)
+    let schoolAdminUser = null;
+    if (schoolData.contactEmail && schoolData.contactPerson) {
+      try {
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+        schoolAdminUser = await storage.createUser({
+          email: schoolData.contactEmail,
+          password: hashedPassword,
+          name: schoolData.contactPerson,
+          role: 'school_admin',
+          phoneNumber: schoolData.contactPhone || undefined,
+          isActive: false, // Will be activated when they accept agreement
+        });
+      } catch (userError: any) {
+        // If user creation fails (e.g., email exists), continue without user
+        console.warn('Failed to create school admin user:', userError.message);
+      }
+    }
+
+    // Generate agreement token
+    const agreementToken = jwt.sign(
+      { schoolId: 'temp', email: schoolData.contactEmail },
+      JWT_SECRET,
+      { expiresIn: '7d' } // 7 days to accept agreement
+    );
+
+    // Create school with user link and agreement token
+    const school = await storage.createSchool({
+      ...schoolData,
+      adminUserId: schoolAdminUser?.id || undefined,
+      agreementToken,
+      agreementStatus: 'pending',
+    });
+
+    // Update the token with actual school ID
+    const finalAgreementToken = jwt.sign(
+      { schoolId: school.id, email: schoolData.contactEmail },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Update school with final token
+    await storage.updateSchool(school.id, {
+      agreementToken: finalAgreementToken,
+    });
+
+    // Send welcome email with agreement link (if contact email provided)
+    if (schoolData.contactEmail && schoolData.contactPerson) {
+      try {
+        const loginUrl = `${req.protocol}://${req.get('host')}/login`;
+        
+        await sendEmail(
+          schoolData.contactEmail,
+          'Welcome to Smile Stars India - School Registration Complete',
+          `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">Welcome to Smile Stars India!</h2>
+              
+              <p>Dear ${schoolData.contactPerson},</p>
+              
+              <p>Congratulations! Your school <strong>${schoolData.name}</strong> has been successfully registered in our dental care platform.</p>
+              
+              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #1f2937; margin-top: 0;">Your School Admin Login Details:</h3>
+                <p><strong>Email:</strong> ${schoolData.contactEmail}</p>
+                <p><strong>Password:</strong> 12345</p>
+                <p><strong>School:</strong> ${schoolData.name}</p>
+                <p><strong>Location:</strong> ${schoolData.city}, ${schoolData.state}</p>
+              </div>
+              
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #065f46; margin-top: 0;">Next Steps:</h3>
+                <ol style="color: #065f46;">
+                  <li><strong>Login to your account:</strong> <a href="${loginUrl}" style="color: #2563eb;">Click here to access your dashboard</a></li>
+                  <li><strong>Review and accept the agreement</strong> to activate your account</li>
+                  <li><strong>Start scheduling dental camps</strong> for your students</li>
+                  <li><strong>Manage student registrations</strong> for upcoming camps</li>
+                </ol>
+              </div>
+              
+              <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #92400e;"><strong>Important:</strong> You must accept the school agreement when you first login to activate your account and start using the platform.</p>
+              </div>
+              
+              <p>Our platform will help you:</p>
+              <ul>
+                <li>Schedule preventive dental camps for your students</li>
+                <li>Manage student registrations and data</li>
+                <li>Track dental screenings and reports</li>
+                <li>Communicate with parents about their child's dental health</li>
+              </ul>
+              
+              <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+              
+              <p>Best regards,<br>
+              The Smile Stars India Team</p>
+            </div>
+          `
+        );
+        
+        res.status(201).json({
+          success: true,
+          message: 'School registered successfully and welcome email sent',
+          school: {
+            id: school.id,
+            name: school.name,
+            city: school.city,
+            state: school.state,
+            agreementStatus: school.agreementStatus,
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send school welcome email:', emailError);
+        res.status(201).json({
+          success: true,
+          message: 'School registered successfully, but email delivery failed. Please contact the school manually.',
+          school: {
+            id: school.id,
+            name: school.name,
+            city: school.city,
+            state: school.state,
+            agreementStatus: school.agreementStatus,
+          },
+        });
+      }
+    } else {
+      res.status(201).json({
+        success: true,
+        message: 'School registered successfully (no email sent - contact email not provided)',
+        school: {
+          id: school.id,
+          name: school.name,
+          city: school.city,
+          state: school.state,
+          agreementStatus: school.agreementStatus,
+        },
+      });
+    }
   } catch (error) {
-    res.status(400).json({ error: 'Invalid school data' });
+    console.error('School creation error:', error);
+    
+    // Handle specific database errors
+    if (error.code === '23505') {
+      return res.status(409).json({ 
+        error: `Email address already exists. Please use a different email.` 
+      });
+    }
+    
+    res.status(500).json({ error: 'Failed to create school' });
   }
 });
 
@@ -781,6 +930,167 @@ router.get('/franchise/agreement/:token', async (req, res) => {
       return res.status(400).json({ error: 'Agreement link has expired' });
     }
     res.status(400).json({ error: 'Invalid agreement token' });
+  }
+});
+
+// School Agreement routes
+router.post('/school/accept-agreement', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Agreement token is required' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const { schoolId, email } = decoded;
+
+    // Find school by ID and token
+    const school = await storage.getSchoolById(schoolId);
+    if (!school || school.agreementToken !== token) {
+      return res.status(400).json({ error: 'Invalid or expired agreement token' });
+    }
+
+    if (school.agreementStatus === 'accepted') {
+      return res.status(400).json({ error: 'Agreement already accepted' });
+    }
+
+    // Update school agreement status
+    await storage.updateSchool(schoolId, {
+      agreementStatus: 'accepted',
+      agreementAcceptedAt: new Date(),
+      agreementToken: null, // Clear the token after use
+    });
+
+    // Activate the school admin user account
+    if (school.adminUserId) {
+      await storage.updateUser(school.adminUserId, {
+        isActive: true,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'School agreement accepted successfully',
+      school: {
+        id: school.id,
+        name: school.name,
+        city: school.city,
+        state: school.state,
+        agreementStatus: 'accepted',
+      },
+    });
+  } catch (error) {
+    console.error('School agreement acceptance error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Agreement link has expired. Please contact support.' });
+    }
+    res.status(400).json({ error: 'Invalid agreement token' });
+  }
+});
+
+// Get school agreement details (for frontend to display agreement page)
+router.get('/school/agreement/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Verify token without authenticating user
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const { schoolId, email } = decoded;
+
+    // Find school
+    const school = await storage.getSchoolById(schoolId);
+    if (!school || school.agreementToken !== token) {
+      return res.status(400).json({ error: 'Invalid or expired agreement token' });
+    }
+
+    res.json({
+      school: {
+        id: school.id,
+        name: school.name,
+        city: school.city,
+        state: school.state,
+        contactPerson: school.contactPerson,
+        contactEmail: school.contactEmail,
+        agreementStatus: school.agreementStatus,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('School agreement fetch error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Agreement link has expired' });
+    }
+    res.status(400).json({ error: 'Invalid agreement token' });
+  }
+});
+
+// School Admin specific routes
+router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getSchoolsByUser(req.user.id);
+    if (schools.length === 0) {
+      return res.status(404).json({ error: 'No school found for this user' });
+    }
+    res.json(schools[0]); // Return the first school for this user
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch school data' });
+  }
+});
+
+router.post('/schools/accept-agreement', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getSchoolsByUser(req.user.id);
+    if (schools.length === 0) {
+      return res.status(404).json({ error: 'No school found for this user' });
+    }
+    
+    const school = schools[0];
+    const updatedSchool = await storage.updateSchool(school.id, {
+      agreementStatus: 'accepted',
+      agreementAcceptedAt: new Date(),
+    });
+    
+    // Also activate the user account
+    await storage.updateUser(req.user.id, {
+      isActive: true,
+    });
+    
+    res.json({
+      school: updatedSchool,
+      message: 'School agreement accepted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to accept agreement' });
+  }
+});
+
+router.get('/camps/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getSchoolsByUser(req.user.id);
+    if (schools.length === 0) {
+      return res.status(404).json({ error: 'No school found for this user' });
+    }
+    
+    const camps = await storage.getCampsBySchool(schools[0].id);
+    res.json(camps);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch school camps' });
+  }
+});
+
+router.get('/students/my-school', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getSchoolsByUser(req.user.id);
+    if (schools.length === 0) {
+      return res.status(404).json({ error: 'No school found for this user' });
+    }
+    
+    const students = await storage.getStudentsBySchool(schools[0].id);
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch school students' });
   }
 });
 

@@ -45,11 +45,14 @@ export const schools = pgTable("schools", {
   contactPerson: text("contact_person"),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
-  adminUserId: integer("admin_user_id"),
+  adminUserId: integer("admin_user_id"), // Link to user with school_admin role
   franchiseId: integer("franchise_id"), // Link to franchise that manages this school
   registrationNumber: text("registration_number"),
   hasSubBranches: boolean("has_sub_branches").default(false),
   parentSchoolId: integer("parent_school_id"), // For sub-branches
+  agreementStatus: text("agreement_status").default("pending"), // pending, accepted, rejected
+  agreementAcceptedAt: timestamp("agreement_accepted_at"),
+  agreementToken: text("agreement_token"), // For email verification
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
