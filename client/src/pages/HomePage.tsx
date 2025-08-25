@@ -15,8 +15,8 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-3">
-                <Smile className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mr-3 shadow-lg">
+                <img src="/logo.png" alt="Smile Stars India" className="w-10 h-10" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Smile Stars India</h1>

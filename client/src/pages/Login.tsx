@@ -95,8 +95,8 @@ export function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 rounded-full p-3">
-              <Smile className="h-8 w-8 text-white" />
+            <div className="bg-white rounded-full p-2 shadow-lg">
+              <img src="/logo.png" alt="Smile Stars India" className="h-12 w-12" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">

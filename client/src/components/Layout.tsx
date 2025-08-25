@@ -58,7 +58,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
-                <Smile className="text-blue-600 h-8 w-8 mr-3" />
+                <img src="/logo.png" alt="Smile Stars India" className="h-8 w-8 mr-3" />
                 <h1 className="text-xl font-semibold text-gray-900">Smile Stars India</h1>
               </div>
             </div>
