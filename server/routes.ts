@@ -1251,10 +1251,20 @@ router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: R
 
 router.post('/camps', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const campData = insertCampSchema.parse({
+    console.log('=== CAMP CREATION API CALLED ===');
+    console.log('Raw request body:', req.body);
+    
+    // Convert date strings to Date objects
+    const processedBody = {
       ...req.body,
+      startDate: new Date(req.body.startDate),
+      endDate: new Date(req.body.endDate),
       createdBy: req.user!.id
-    });
+    };
+    
+    console.log('Processed body with Date objects:', processedBody);
+    
+    const campData = insertCampSchema.parse(processedBody);
 
     // Validate that the school exists and has accepted agreement
     const school = await storage.getSchoolById(campData.schoolId);
