@@ -51,6 +51,7 @@ export function Camps() {
         message: "End date must be at least tomorrow",
       }),
       schoolId: z.number().min(1, "Please select a school"),
+      expectedStudents: z.number().min(1, "Expected students must be at least 1"),
     }).refine((data) => data.endDate >= data.startDate, {
       message: "End date must be after start date",
       path: ["endDate"],
@@ -60,7 +61,7 @@ export function Camps() {
       schoolId: 0,
       startDate: new Date(Date.now() + 86400000), // Tomorrow
       endDate: new Date(Date.now() + 172800000), // Day after tomorrow  
-      expectedStudents: 0,
+      expectedStudents: 50,
       status: 'planned',
       description: '',
       assignedDentistId: null,
@@ -190,7 +191,11 @@ export function Camps() {
                 <DialogTitle>Schedule New Dental Camp</DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                  console.log('=== FORM VALIDATION FAILED ===');
+                  console.log('Validation errors:', errors);
+                  console.log('Form values:', form.getValues());
+                })} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
