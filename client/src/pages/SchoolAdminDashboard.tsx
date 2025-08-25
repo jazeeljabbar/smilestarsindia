@@ -38,10 +38,9 @@ export default function SchoolAdminDashboard() {
   // Agreement acceptance mutation
   const acceptAgreementMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/schools/accept-agreement', {
+      return await apiRequest('/schools/accept-agreement', {
         method: 'POST',
       });
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/schools/my-school'] });
