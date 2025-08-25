@@ -53,7 +53,7 @@ export default function SchoolAdminDashboard() {
     },
   });
 
-  // Show agreement modal on first login if not accepted
+  // Show agreement modal on first login if not accepted - MANDATORY
   const shouldShowAgreement = school && school.agreementStatus === 'pending';
 
   if (isLoading) {
@@ -77,6 +77,85 @@ export default function SchoolAdminDashboard() {
   const activeCamps = camps.filter(camp => camp.status === 'active').length;
   const totalStudents = students.length;
   const completedCamps = camps.filter(camp => camp.status === 'completed').length;
+
+  // If agreement is pending, show only the agreement modal
+  if (shouldShowAgreement) {
+    return (
+      <div className="space-y-6">
+        {/* Agreement Modal - Mandatory */}
+        <Dialog open={true} onOpenChange={() => {}}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>School Agreement - Smile Stars India</DialogTitle>
+              <DialogDescription>
+                Welcome! Please review and accept the agreement to activate your school account and access the platform features.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="h-96 w-full border rounded-md p-4">
+              <div className="space-y-4 text-sm">
+                <h3 className="font-semibold text-lg">Terms and Conditions for School Partnership</h3>
+                
+                <div className="space-y-3">
+                  <h4 className="font-medium">1. Partnership Overview</h4>
+                  <p>
+                    By registering {school.name} with Smile Stars India, you agree to participate in our preventive 
+                    dental care program designed to improve oral health outcomes for school children.
+                  </p>
+
+                  <h4 className="font-medium">2. School Responsibilities</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Provide accurate student enrollment data for dental camps</li>
+                    <li>Ensure proper communication with parents regarding dental screenings</li>
+                    <li>Facilitate access to school premises for dental team visits</li>
+                    <li>Maintain confidentiality of student health information</li>
+                    <li>Support follow-up communications with parents</li>
+                  </ul>
+
+                  <h4 className="font-medium">3. Smile Stars India Services</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Comprehensive dental screenings by qualified dentists</li>
+                    <li>Digital dental charts and health records</li>
+                    <li>Parent communication and report delivery</li>
+                    <li>Preventive care recommendations</li>
+                    <li>Follow-up support and guidance</li>
+                  </ul>
+
+                  <h4 className="font-medium">4. Data Privacy and Security</h4>
+                  <p>
+                    All student health information will be handled in accordance with applicable privacy laws. 
+                    Data will be used solely for the purpose of providing dental care services and parent communication.
+                  </p>
+
+                  <h4 className="font-medium">5. Program Duration</h4>
+                  <p>
+                    This agreement remains valid for the academic year and may be renewed annually based on 
+                    mutual agreement and program effectiveness.
+                  </p>
+
+                  <h4 className="font-medium">6. Contact Information</h4>
+                  <p>
+                    For any questions or concerns regarding this agreement, please contact your assigned 
+                    franchisee or our support team.
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="gap-2">
+              <Button 
+                onClick={() => acceptAgreementMutation.mutate()}
+                disabled={acceptAgreementMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 w-full"
+              >
+                {acceptAgreementMutation.isPending ? 'Accepting Agreement...' : 'Accept Agreement & Access Dashboard'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -174,47 +253,63 @@ export default function SchoolAdminDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {camps.length > 0 ? (
-            <div className="space-y-4">
-              {camps.slice(0, 5).map((camp: Camp) => (
-                <div key={camp.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium">{camp.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {new Date(camp.startDate).toLocaleDateString()} - {new Date(camp.endDate).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Expected Students: {camp.expectedStudents}
-                    </p>
+          {school.agreementStatus === 'accepted' ? (
+            camps.length > 0 ? (
+              <div className="space-y-4">
+                {camps.slice(0, 5).map((camp: Camp) => (
+                  <div key={camp.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">{camp.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {new Date(camp.startDate).toLocaleDateString()} - {new Date(camp.endDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Expected Students: {camp.expectedStudents}
+                      </p>
+                      {camp.description && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          {camp.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant={
+                      camp.status === 'active' ? 'default' :
+                      camp.status === 'completed' ? 'secondary' : 'outline'
+                    }>
+                      {camp.status}
+                    </Badge>
                   </div>
-                  <Badge variant={
-                    camp.status === 'active' ? 'default' :
-                    camp.status === 'completed' ? 'secondary' : 'outline'
-                  }>
-                    {camp.status}
-                  </Badge>
+                ))}
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Camps are scheduled by your franchisee. You can view camp details and manage student registrations.
+                  </p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No camps scheduled yet</p>
+                <p className="text-sm text-gray-500">Camps will be scheduled by your franchisee</p>
+              </div>
+            )
           ) : (
             <div className="text-center py-8">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No camps scheduled yet</p>
-              <p className="text-sm text-gray-500">Camps will be scheduled by your franchisee</p>
+              <Calendar className="h-12 w-12 text-orange-400 mx-auto mb-4" />
+              <p className="text-gray-600">Agreement Required</p>
+              <p className="text-sm text-gray-500">Please accept the school agreement to view camp information</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Agreement Modal */}
-      <Dialog open={shouldShowAgreement || showAgreement} onOpenChange={(open) => {
-        if (!shouldShowAgreement) setShowAgreement(open);
-      }}>
+      {/* Optional Agreement Review Modal (for accepted schools) */}
+      <Dialog open={showAgreement} onOpenChange={setShowAgreement}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>School Agreement - Smile Stars India</DialogTitle>
             <DialogDescription>
-              Please review and accept the agreement to activate your school account
+              Review your accepted agreement
             </DialogDescription>
           </DialogHeader>
           
@@ -269,17 +364,8 @@ export default function SchoolAdminDashboard() {
           </ScrollArea>
 
           <DialogFooter className="gap-2">
-            {!shouldShowAgreement && (
-              <Button variant="outline" onClick={() => setShowAgreement(false)}>
-                Cancel
-              </Button>
-            )}
-            <Button 
-              onClick={() => acceptAgreementMutation.mutate()}
-              disabled={acceptAgreementMutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {acceptAgreementMutation.isPending ? 'Accepting...' : 'Accept Agreement'}
+            <Button variant="outline" onClick={() => setShowAgreement(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
