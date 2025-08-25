@@ -180,7 +180,10 @@ export function Camps() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>School</FormLabel>
-                          <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
+                          <Select 
+                            onValueChange={(value) => field.onChange(parseInt(value))} 
+                            value={field.value > 0 ? field.value.toString() : ""}
+                          >
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select school" />
@@ -190,13 +193,26 @@ export function Camps() {
                               {schools.length === 0 ? (
                                 <SelectItem value="0" disabled>No schools available</SelectItem>
                               ) : (
-                                schools
-                                  .filter((school: any) => school.agreementStatus === 'accepted')
-                                  .map((school: any) => (
-                                    <SelectItem key={school.id} value={school.id.toString()}>
-                                      {school.name} - {school.city}, {school.state}
+                                (() => {
+                                  // For debugging: temporarily show all schools to identify the issue
+                                  const allSchools = schools;
+                                  const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
+                                  
+                                  console.log('All schools:', allSchools);
+                                  console.log('Accepted schools:', acceptedSchools);
+                                  
+                                  // Show all schools for now, but indicate their status
+                                  return allSchools.map((school: any) => (
+                                    <SelectItem 
+                                      key={school.id} 
+                                      value={school.id.toString()}
+                                      disabled={school.agreementStatus !== 'accepted'}
+                                    >
+                                      {school.name} - {school.city}, {school.state} 
+                                      {school.agreementStatus !== 'accepted' && ' (Agreement Pending)'}
                                     </SelectItem>
-                                  ))
+                                  ));
+                                })()
                               )}
                             </SelectContent>
                           </Select>
