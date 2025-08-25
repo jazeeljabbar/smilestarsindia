@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Edit, MapPin, Phone, Mail, Building2, Users, GitBranch, Trash2, MoreVertical, CheckCircle, Clock, XCircle, GraduationCap } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -203,6 +203,32 @@ export function Schools() {
 
   const onSubmit = (data: InsertSchool) => {
     createSchoolMutation.mutate(data);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Accepted</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
   };
 
   if (isLoading) {
@@ -490,8 +516,9 @@ export function Schools() {
           <Card key={school.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
-                <div>
+                <div className="flex-1">
                   <CardTitle className="text-lg flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-blue-600" />
                     {school.name}
                     {school.parentSchoolId && (
                       <Badge variant="outline" className="text-xs">
@@ -507,63 +534,81 @@ export function Schools() {
                     )}
                   </CardTitle>
                   {school.registrationNumber && (
-                    <p className="text-sm text-gray-500">Reg: {school.registrationNumber}</p>
+                    <p className="text-sm text-gray-500 mt-1">Reg: {school.registrationNumber}</p>
+                  )}
+                  <p className="text-sm text-gray-500 mt-1">{school.city}, {school.state}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {school.agreementStatus && getStatusIcon(school.agreementStatus)}
+                  {school.agreementStatus && getStatusBadge(school.agreementStatus)}
+                  {(user?.role === 'admin' || user?.role === 'franchisee') && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          setEditingSchool(school);
+                          setIsDialogOpen(true);
+                        }}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit School
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete School
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the school
+                                "{school.name}" and all associated data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteSchoolMutation.mutate(school.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
-                {(user?.role === 'admin' || user?.role === 'franchisee') && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        setEditingSchool(school);
-                        setIsDialogOpen(true);
-                      }}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit School
-                      </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete School
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the school
-                              "{school.name}" and all associated data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteSchoolMutation.mutate(school.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Franchise Information */}
-              {school.franchiseId && franchises.find((f: any) => f.id === school.franchiseId) && (
-                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded">
-                  <Users className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">
-                    {franchises.find((f: any) => f.id === school.franchiseId)?.name}
-                  </span>
+              {/* Contact Person */}
+              {school.contactPerson && (
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Contact Person:</span>
+                  <p className="text-sm text-gray-600">{school.contactPerson}</p>
+                </div>
+              )}
+
+              {/* Contact Information */}
+              {school.contactEmail && (
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">{school.contactEmail}</span>
+                </div>
+              )}
+              
+              {school.contactPhone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">{school.contactPhone}</span>
                 </div>
               )}
 
@@ -575,25 +620,27 @@ export function Schools() {
                   <p>{school.city}, {school.state} {school.pincode}</p>
                 </div>
               </div>
-              
-              {/* Contact Information */}
-              {school.contactPerson && (
-                <div className="text-sm">
-                  <span className="font-medium">Contact:</span> {school.contactPerson}
+
+              {/* Franchise Information */}
+              {school.franchiseId && franchises.find((f: any) => f.id === school.franchiseId) && (
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    Franchise: {franchises.find((f: any) => f.id === school.franchiseId)?.name}
+                  </span>
                 </div>
               )}
-              
-              {school.contactPhone && (
-                <div className="flex items-center space-x-2">
-                  <Phone className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">{school.contactPhone}</span>
+
+              {/* Agreement Status Details */}
+              {school.agreementAcceptedAt && (
+                <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+                  Agreement accepted on {new Date(school.agreementAcceptedAt).toLocaleDateString()}
                 </div>
               )}
-              
-              {school.contactEmail && (
-                <div className="flex items-center space-x-2">
-                  <Mail className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">{school.contactEmail}</span>
+
+              {school.agreementStatus === 'pending' && (
+                <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                  Waiting for agreement acceptance
                 </div>
               )}
 
@@ -602,11 +649,9 @@ export function Schools() {
                 <Badge variant={school.isActive ? "default" : "secondary"}>
                   {school.isActive ? "Active" : "Inactive"}
                 </Badge>
-                {school.parentSchoolId && (
-                  <span className="text-xs text-gray-500">
-                    Branch of: {parentSchools.find((p: any) => p.id === school.parentSchoolId)?.name}
-                  </span>
-                )}
+                <span className="text-xs text-gray-500">
+                  Created: {new Date(school.createdAt).toLocaleDateString()}
+                </span>
               </div>
             </CardContent>
           </Card>
