@@ -26,6 +26,7 @@ export interface IStorage {
   getAllSchools(): Promise<School[]>;
   getSchoolById(id: number): Promise<School | null>;
   getSchoolsByFranchise(franchiseId: number): Promise<School[]>;
+  getSchoolsByUser(userId: number): Promise<School[]>;
   updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School>;
   deleteSchool(id: number): Promise<void>;
 
@@ -156,6 +157,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSchoolsByFranchise(franchiseId: number): Promise<School[]> {
     return await db.select().from(schools).where(eq(schools.franchiseId, franchiseId));
+  }
+
+  async getSchoolsByUser(userId: number): Promise<School[]> {
+    return await db.select().from(schools).where(eq(schools.adminUserId, userId));
   }
 
   async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School> {
