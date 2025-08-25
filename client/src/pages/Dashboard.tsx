@@ -259,7 +259,7 @@ export function Dashboard() {
             <CardContent className="space-y-3">
               {(user?.role === 'dentist' || user?.role === 'admin') && (
                 <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
                   onClick={() => setShowScreeningForm(true)}
                 >
                   <Stethoscope className="h-4 w-4 mr-2" />
@@ -269,7 +269,7 @@ export function Dashboard() {
               
               {user?.role === 'admin' && (
                 <Button 
-                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
                   onClick={() => setShowFranchiseeDialog(true)}
                 >
                   <Building2 className="h-4 w-4 mr-2" />
@@ -280,14 +280,14 @@ export function Dashboard() {
               {(user?.role === 'admin' || user?.role === 'franchisee') && (
                 <>
                   <Button 
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
                     onClick={() => setLocation('/schools?register=true')}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Register New School
                   </Button>
                   <Button 
-                    className="w-full bg-orange-600 hover:bg-orange-700"
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white justify-start"
                     onClick={() => setLocation('/reports')}
                   >
                     <FileText className="h-4 w-4 mr-2" />
