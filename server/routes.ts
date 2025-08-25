@@ -1137,27 +1137,54 @@ router.get('/school/agreement/:token', async (req, res) => {
 
 router.post('/schools/accept-agreement', authenticateToken, requireRole(['school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('=== SCHOOL ACCEPT AGREEMENT API CALLED ===');
+    console.log('User:', req.user);
+    
     const schools = await storage.getSchoolsByUser(req.user.id);
+    console.log('Found schools for agreement:', schools.length);
+    
     if (schools.length === 0) {
+      console.log('No schools found for user:', req.user.id);
       return res.status(404).json({ error: 'No school found for this user' });
     }
     
     const school = schools[0];
+    console.log('Current school agreement status:', school.agreementStatus);
+    
+    if (school.agreementStatus === 'accepted') {
+      console.log('Agreement already accepted');
+      return res.status(400).json({ error: 'Agreement already accepted' });
+    }
+    
+    console.log('Updating school agreement status...');
     const updatedSchool = await storage.updateSchool(school.id, {
       agreementStatus: 'accepted',
       agreementAcceptedAt: new Date(),
     });
+    console.log('School updated successfully');
     
     // Also activate the user account
+    console.log('Activating user account...');
     await storage.updateUser(req.user.id, {
       isActive: true,
     });
+    console.log('User account activated');
     
-    res.json({
-      school: updatedSchool,
+    const response = {
+      school: {
+        ...updatedSchool,
+        agreementAcceptedAt: updatedSchool.agreementAcceptedAt ? updatedSchool.agreementAcceptedAt.toISOString() : null,
+        createdAt: updatedSchool.createdAt ? updatedSchool.createdAt.toISOString() : null,
+      },
       message: 'School agreement accepted successfully',
-    });
+    };
+    
+    console.log('Sending successful response:', response);
+    res.json(response);
   } catch (error) {
+    console.error('=== ERROR IN ACCEPT AGREEMENT ===');
+    console.error('Error:', error);
+    console.error('Error stack:', (error as Error).stack);
     res.status(500).json({ error: 'Failed to accept agreement' });
   }
 });
