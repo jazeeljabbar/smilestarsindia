@@ -5,7 +5,8 @@ import { z } from "zod";
 // Users table for authentication and role management
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(), // admin, dentist, school_admin, parent, franchisee, teacher, principal, technician, social_media_manager
