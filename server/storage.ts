@@ -28,6 +28,7 @@ export interface IStorage {
   getSchoolById(id: number): Promise<School | null>;
   getSchoolsByFranchise(franchiseId: number): Promise<School[]>;
   getSchoolsByUser(userId: number): Promise<School[]>;
+  getSchoolsByAdmin(adminUserId: number): Promise<School[]>;
   updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School>;
   deleteSchool(id: number): Promise<void>;
 
@@ -51,6 +52,7 @@ export interface IStorage {
   createStudent(student: InsertStudent): Promise<Student>;
   getAllStudents(): Promise<Student[]>;
   getStudentById(id: number): Promise<Student | null>;
+  getStudentByEmail(email: string): Promise<Student | null>;
   getStudentsByCamp(campId: number): Promise<Student[]>;
   getStudentsBySchool(schoolId: number): Promise<Student[]>;
   updateStudent(id: number, updates: Partial<InsertStudent>): Promise<Student>;
@@ -170,6 +172,10 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select().from(schools).where(eq(schools.adminUserId, userId));
     console.log('Storage: Found schools:', result.length, result);
     return result;
+  }
+
+  async getSchoolsByAdmin(adminUserId: number): Promise<School[]> {
+    return await db.select().from(schools).where(eq(schools.adminUserId, adminUserId));
   }
 
   async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School> {
@@ -293,6 +299,11 @@ export class DatabaseStorage implements IStorage {
 
   async getStudentById(id: number): Promise<Student | null> {
     const [student] = await db.select().from(students).where(eq(students.id, id));
+    return student || null;
+  }
+
+  async getStudentByEmail(email: string): Promise<Student | null> {
+    const [student] = await db.select().from(students).where(eq(students.email, email));
     return student || null;
   }
 

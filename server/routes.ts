@@ -1256,7 +1256,7 @@ router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: R
   }
 });
 
-router.post('/camps', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/camps', authenticateToken, requireRole(['admin', 'franchisee']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('=== CAMP CREATION API CALLED ===');
     console.log('Raw request body:', req.body);
@@ -1520,9 +1520,45 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
   }
 });
 
-router.post('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/students', authenticateToken, requireRole(['admin', 'franchisee', 'school_admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const studentData = insertStudentSchema.parse(req.body);
+    
+    // Role-based validation
+    if (req.user!.role === 'school_admin') {
+      // School admins can only create students in their own school
+      const userSchools = await storage.getSchoolsByAdmin(req.user!.id);
+      if (userSchools.length === 0) {
+        return res.status(403).json({ error: 'No school associated with this admin account' });
+      }
+      
+      const adminSchool = userSchools[0]; // School admin should only have one school
+      if (studentData.schoolId !== adminSchool.id) {
+        return res.status(403).json({ error: 'You can only add students to your own school' });
+      }
+    } else if (req.user!.role === 'franchisee') {
+      // Franchisees can only create students in schools under their franchise
+      const school = await storage.getSchoolById(studentData.schoolId);
+      if (!school) {
+        return res.status(404).json({ error: 'School not found' });
+      }
+      
+      const franchises = await storage.getFranchisesByUser(req.user!.id);
+      const userFranchiseIds = franchises.map(f => f.id);
+      
+      if (!userFranchiseIds.includes(school.franchiseId)) {
+        return res.status(403).json({ error: 'You can only add students to schools under your franchise' });
+      }
+    }
+    
+    // Check if student email already exists to ensure one school per student
+    if (studentData.email) {
+      const existingStudent = await storage.getStudentByEmail(studentData.email);
+      if (existingStudent) {
+        return res.status(400).json({ error: 'A student with this email is already registered in another school' });
+      }
+    }
+    
     const student = await storage.createStudent(studentData);
     res.status(201).json(student);
   } catch (error) {
