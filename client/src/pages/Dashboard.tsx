@@ -54,6 +54,13 @@ export function Dashboard() {
 
   const statsCards = [
     {
+      title: 'Total Users',
+      value: stats?.totalUsers || 0,
+      icon: UserPlus,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100',
+    },
+    {
       title: 'Total Schools',
       value: stats?.totalSchools || 0,
       icon: School,

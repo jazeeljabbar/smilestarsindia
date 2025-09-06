@@ -1754,6 +1754,7 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
     const screenings = await storage.getAllScreenings();
     const reports = await storage.getAllReports();
     const franchises = await storage.getAllFranchises();
+    const users = await storage.getAllUsers();
 
     const activeCamps = camps.filter(c => c.status === 'active');
     const completedScreenings = screenings.filter(s => s.isCompleted);
@@ -1764,7 +1765,8 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
       activeCamps: activeCamps.length,
       studentsScreened: completedScreenings.length,
       reportsGenerated: reports.length,
-      totalFranchises: franchises.length
+      totalFranchises: franchises.length,
+      totalUsers: users.length
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch dashboard stats' });
