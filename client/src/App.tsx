@@ -7,6 +7,7 @@ import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
 import SchoolAdminDashboard from '@/pages/SchoolAdminDashboard';
+import { Users } from '@/pages/Users';
 import { Schools } from '@/pages/Schools';
 import { Camps } from '@/pages/Camps';
 import { Students } from '@/pages/Students';
@@ -54,6 +55,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={getDashboardComponent()} />
         <Route path="/dashboard" component={getDashboardComponent()} />
+        <Route path="/users" component={Users} />
         <Route path="/franchisees" component={Franchisees} />
         <Route path="/schools" component={Schools} />
         <Route path="/camps" component={Camps} />
