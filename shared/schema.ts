@@ -11,7 +11,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   role: text("role").notNull(), // admin, dentist, school_admin, parent, franchisee, teacher, principal, technician, social_media_manager
   phoneNumber: text("phone_number"),
-  isActive: boolean("is_active").default(true),
+  status: text("status").notNull().default("active"), // active, inactive, suspended
   createdAt: timestamp("created_at").defaultNow(),
 });
 
