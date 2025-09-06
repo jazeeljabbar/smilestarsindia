@@ -205,36 +205,37 @@ const requireRole = (roles: string[]) => {
 router.post('/auth/login', async (req, res) => {
   try {
     
-    const { email, password } = loginSchema.parse(req.body);
-    console.log('Parsed login data:', { email, passwordLength: password?.length });
+    const { username, password } = loginSchema.parse(req.body);
+    console.log('Parsed login data:', { username, passwordLength: password?.length });
     
-    const user = await storage.getUserByEmail(email);
+    const user = await storage.getUserByUsername(username);
     if (!user) {
-      console.log('User not found for email:', email);
+      console.log('User not found for username:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log('User found:', { id: user.id, email: user.email, role: user.role });
+    console.log('User found:', { id: user.id, username: user.username, email: user.email, role: user.role });
 
     // Check password using bcrypt
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      console.log('Password validation failed for user:', email);
+      console.log('Password validation failed for user:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, username: user.username, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    console.log('Login successful for user:', email);
+    console.log('Login successful for user:', username);
     res.json({
       token,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role
