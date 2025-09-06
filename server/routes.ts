@@ -305,6 +305,7 @@ router.get('/users', authenticateToken, requireRole(['admin']), async (req: Auth
     // Remove password from response for security
     const safeUsers = users.map(user => ({
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       role: user.role,
@@ -329,6 +330,7 @@ router.get('/users/:id', authenticateToken, requireRole(['admin']), async (req: 
     // Remove password from response for security
     res.json({
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       role: user.role,
