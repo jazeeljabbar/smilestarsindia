@@ -20,7 +20,7 @@ export function DentistLogin() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'dentist@smilestars.com',
+      username: 'dentist_smilestars',
       password: '12345',
     },
   });
@@ -28,7 +28,7 @@ export function DentistLogin() {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      await login(data.username, data.password);
       toast({
         title: "Welcome to Dentist Portal",
         description: "You have successfully signed in.",

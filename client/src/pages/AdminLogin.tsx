@@ -20,7 +20,7 @@ export function AdminLogin() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@smilestars.com',
+      username: 'admin_smilestars',
       password: '12345',
     },
   });
@@ -28,7 +28,7 @@ export function AdminLogin() {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      await login(data.username, data.password);
       toast({
         title: "Welcome to Admin Portal",
         description: "You have successfully signed in.",

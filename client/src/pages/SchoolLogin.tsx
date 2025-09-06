@@ -20,7 +20,7 @@ export function SchoolLogin() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'school@stmarysschool.edu.in',
+      username: 'school_stmarys',
       password: '12345',
     },
   });
@@ -28,7 +28,7 @@ export function SchoolLogin() {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      await login(data.username, data.password);
       toast({
         title: 'Welcome to School Portal',
         description: 'You have successfully logged in as a school administrator.',
