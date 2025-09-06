@@ -14,6 +14,7 @@ export function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: 'home' },
+    { name: 'Users', href: '/users', icon: 'user-cog', adminOnly: true },
     { name: 'Franchisees', href: '/franchisees', icon: 'building-2', adminOnly: true },
     { name: 'Schools', href: '/schools', icon: 'school' },
     { name: 'Camps', href: '/camps', icon: 'calendar' },
