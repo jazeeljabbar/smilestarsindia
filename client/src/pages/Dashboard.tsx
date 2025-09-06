@@ -287,6 +287,20 @@ export function Dashboard() {
                     Register New School
                   </Button>
                   <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                    onClick={() => setLocation('/camps')}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Camp
+                  </Button>
+                  <Button 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white justify-start"
+                    onClick={() => setLocation('/students')}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Register Students
+                  </Button>
+                  <Button 
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white justify-start"
                     onClick={() => setLocation('/reports')}
                   >

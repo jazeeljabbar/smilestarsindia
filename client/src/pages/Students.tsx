@@ -118,7 +118,7 @@ export function Students() {
           </p>
         </div>
         <div className="flex space-x-2">
-          {(user?.role === 'admin' || user?.role === 'school_admin') && (
+          {(user?.role === 'admin' || user?.role === 'franchisee' || user?.role === 'school_admin') && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-blue-600 hover:bg-blue-700">
