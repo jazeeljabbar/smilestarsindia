@@ -255,10 +255,15 @@ router.post('/auth/register', authenticateToken, requireRole(['admin']), async (
   try {
     const userData = insertUserSchema.parse(req.body);
     
-    // Check if user already exists
-    const existingUser = await storage.getUserByEmail(userData.email);
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+    // Check if user already exists (by email or username)
+    const existingUserByEmail = await storage.getUserByEmail(userData.email);
+    if (existingUserByEmail) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+    
+    const existingUserByUsername = await storage.getUserByUsername(userData.username);
+    if (existingUserByUsername) {
+      return res.status(400).json({ error: 'Username already taken' });
     }
 
     // Hash password
@@ -283,6 +288,7 @@ router.get('/auth/me', authenticateToken, async (req: AuthenticatedRequest, res:
 
     res.json({
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       role: user.role
