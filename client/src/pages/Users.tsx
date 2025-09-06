@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Edit, Trash2, UserCog, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCog, Save, X, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,12 @@ const roleColors = {
   school_admin: 'bg-blue-100 text-blue-800',
   dentist: 'bg-green-100 text-green-800',
   parent: 'bg-gray-100 text-gray-800',
+};
+
+const statusColors = {
+  active: 'bg-green-100 text-green-800 border-green-200',
+  inactive: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  suspended: 'bg-red-100 text-red-800 border-red-200',
 };
 
 export function Users() {
@@ -151,6 +158,29 @@ export function Users() {
     },
   });
 
+  // Update user status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest(`/users/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: 'Success',
+        description: 'User status updated successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update user status',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const onCreateSubmit = (data: UserFormData) => {
     createUserMutation.mutate(data);
   };
@@ -172,6 +202,19 @@ export function Users() {
 
   const handleDelete = (id: number) => {
     deleteUserMutation.mutate(id);
+  };
+
+  const handleStatusChange = (id: number, status: string) => {
+    updateStatusMutation.mutate({ id, status });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusClass = statusColors[status as keyof typeof statusColors] || statusColors.inactive;
+    return (
+      <Badge className={statusClass}>
+        {status.toUpperCase()}
+      </Badge>
+    );
   };
 
   // Pagination logic
@@ -367,9 +410,7 @@ export function Users() {
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        Active
-                      </Badge>
+                      {getStatusBadge(user.status)}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex justify-end space-x-2">
@@ -380,6 +421,36 @@ export function Users() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(user.id, 'active')}
+                              disabled={user.status === 'active'}
+                            >
+                              Set Active
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(user.id, 'inactive')}
+                              disabled={user.status === 'inactive'}
+                            >
+                              Set Inactive
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(user.id, 'suspended')}
+                              disabled={user.status === 'suspended'}
+                              className="text-red-600"
+                            >
+                              Suspend User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
