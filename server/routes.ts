@@ -1283,6 +1283,16 @@ router.post('/camps', authenticateToken, requireRole(['admin', 'franchisee']), a
       return res.status(400).json({ error: 'Cannot schedule camp for school that has not accepted agreement' });
     }
 
+    // Role-based validation for franchisees
+    if (req.user!.role === 'franchisee') {
+      const franchises = await storage.getFranchisesByUser(req.user!.id);
+      const userFranchiseIds = franchises.map(f => f.id);
+      
+      if (!userFranchiseIds.includes(school.franchiseId)) {
+        return res.status(403).json({ error: 'You can only create camps in schools under your franchise' });
+      }
+    }
+
     // Validate dates are in the future
     const now = new Date();
     const startDate = new Date(campData.startDate);
