@@ -310,7 +310,7 @@ router.get('/users', authenticateToken, requireRole(['admin']), async (req: Auth
       name: user.name,
       role: user.role,
       phoneNumber: user.phoneNumber,
-      isActive: user.isActive,
+      status: user.status,
       createdAt: user.createdAt
     }));
     res.json(safeUsers);
@@ -335,7 +335,7 @@ router.get('/users/:id', authenticateToken, requireRole(['admin']), async (req: 
       name: user.name,
       role: user.role,
       phoneNumber: user.phoneNumber,
-      isActive: user.isActive,
+      status: user.status,
       createdAt: user.createdAt
     });
   } catch (error) {
@@ -367,7 +367,7 @@ router.post('/users', authenticateToken, requireRole(['admin']), async (req: Aut
       name: user.name,
       role: user.role,
       phoneNumber: user.phoneNumber,
-      isActive: user.isActive,
+      status: user.status,
       createdAt: user.createdAt
     });
   } catch (error) {
@@ -394,7 +394,7 @@ router.put('/users/:id', authenticateToken, requireRole(['admin']), async (req: 
       name: updatedUser.name,
       role: updatedUser.role,
       phoneNumber: updatedUser.phoneNumber,
-      isActive: updatedUser.isActive,
+      status: updatedUser.status,
       createdAt: updatedUser.createdAt
     });
   } catch (error) {
@@ -417,11 +417,49 @@ router.delete('/users/:id', authenticateToken, requireRole(['admin']), async (re
     }
 
     // For now, we'll deactivate the user instead of hard delete to maintain data integrity
-    await storage.updateUser(userId, { isActive: false });
+    await storage.updateUser(userId, { status: 'inactive' });
     
     res.json({ message: 'User deactivated successfully' });
   } catch (error) {
     res.status(400).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Update user status endpoint
+router.patch('/users/:id/status', authenticateToken, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { status } = req.body;
+    
+    // Validate status
+    if (!['active', 'inactive', 'suspended'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be active, inactive, or suspended' });
+    }
+    
+    // Prevent admin from suspending themselves
+    if (userId === req.user!.id && status === 'suspended') {
+      return res.status(400).json({ error: 'Cannot suspend your own account' });
+    }
+
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updatedUser = await storage.updateUser(userId, { status });
+    
+    res.json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      role: updatedUser.role,
+      phoneNumber: updatedUser.phoneNumber,
+      status: updatedUser.status,
+      createdAt: updatedUser.createdAt
+    });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update user status' });
   }
 });
 
@@ -459,7 +497,7 @@ router.post('/schools', authenticateToken, requireRole(['admin', 'franchisee']),
             name: schoolData.contactPerson,
             role: 'school_admin',
             phoneNumber: schoolData.contactPhone || undefined,
-            isActive: false, // Will be activated when they accept agreement
+            status: 'inactive', // Will be activated when they accept agreement
           });
           console.log(`Created school admin user: ${schoolData.contactEmail}`);
         }
@@ -635,7 +673,7 @@ router.get('/schools/my-school', authenticateToken, requireRole(['school_admin']
       agreementStatus: school.agreementStatus,
       agreementAcceptedAt: school.agreementAcceptedAt ? school.agreementAcceptedAt.toISOString() : null,
       agreementToken: school.agreementToken,
-      isActive: school.isActive,
+      status: school.status || 'active',
       createdAt: school.createdAt ? school.createdAt.toISOString() : null,
     };
     console.log('Sending response:', response);
@@ -736,7 +774,7 @@ router.post('/franchises/accept-agreement', authenticateToken, requireRole(['fra
     
     // Also activate the user account
     await storage.updateUser(req.user.id, {
-      isActive: true,
+      status: 'active',
     });
     
     res.json({
@@ -771,7 +809,7 @@ router.post('/franchises', authenticateToken, requireRole(['admin']), async (req
       name: franchiseData.contactPerson,
       role: 'franchisee',
       phoneNumber: franchiseData.contactPhone,
-      isActive: false, // Will be activated when they accept agreement
+      status: 'inactive', // Will be activated when they accept agreement
     });
 
     // Generate agreement token
@@ -992,7 +1030,7 @@ router.post('/franchise/accept-agreement', async (req, res) => {
     // Activate the franchisee user account
     if (franchise.franchiseeUserId) {
       await storage.updateUser(franchise.franchiseeUserId, {
-        isActive: true,
+        status: 'active',
       });
     }
 
@@ -1083,7 +1121,7 @@ router.post('/school/accept-agreement', async (req, res) => {
     // Activate the school admin user account
     if (school.adminUserId) {
       await storage.updateUser(school.adminUserId, {
-        isActive: true,
+        status: 'active',
       });
     }
 
@@ -1175,7 +1213,7 @@ router.post('/schools/accept-agreement', authenticateToken, requireRole(['school
     // Also activate the user account
     console.log('Activating user account...');
     await storage.updateUser(req.user.id, {
-      isActive: true,
+      status: 'active',
     });
     console.log('User account activated');
     
