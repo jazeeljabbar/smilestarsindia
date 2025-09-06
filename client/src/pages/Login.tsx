@@ -182,11 +182,11 @@ export function Login() {
             <div className="text-sm text-gray-500">
               <p className="font-semibold mb-2">Test Accounts:</p>
               <div className="space-y-1 text-xs">
-                <p><strong>Admin:</strong> admin@smilestars.com</p>
-                <p><strong>Franchisee:</strong> e.jazeel@gmail.com</p>
-                <p><strong>School Admin:</strong> school@example.com</p>
-                <p><strong>Dentist:</strong> dentist@example.com</p>
-                <p><strong>Parent:</strong> parent@example.com</p>
+                <p><strong>Admin:</strong> admin_smilestars</p>
+                <p><strong>Franchisee:</strong> jazeelabdul_franchise</p>
+                <p><strong>School Admin:</strong> school_stmarys</p>
+                <p><strong>Dentist:</strong> dentist_smilestars</p>
+                <p><strong>Parent:</strong> parent_example</p>
               </div>
             </div>
           </div>

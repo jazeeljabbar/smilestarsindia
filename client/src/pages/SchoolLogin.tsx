@@ -77,17 +77,17 @@ export function SchoolLogin() {
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
                     control={form.control}
-                    name="email"
+                    name="username"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center">
                           <Mail className="h-4 w-4 mr-1" />
-                          School Email
+                          Username
                         </FormLabel>
                         <FormControl>
                           <Input
-                            type="email"
-                            placeholder="school@example.com"
+                            type="text"
+                            placeholder="school_stmarys"
                             {...field}
                           />
                         </FormControl>
