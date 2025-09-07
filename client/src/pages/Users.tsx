@@ -24,6 +24,10 @@ const userFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  // Entity associations based on roles
+  franchiseeId: z.number().optional(),
+  schoolId: z.number().optional(),
+  studentIds: z.array(z.number()).optional(),
 });
 
 const editUserFormSchema = z.object({
@@ -31,6 +35,10 @@ const editUserFormSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
   roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
+  // Entity associations based on roles
+  franchiseeId: z.number().optional(),
+  schoolId: z.number().optional(),
+  studentIds: z.array(z.number()).optional(),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
@@ -60,6 +68,8 @@ export function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedFranchisee, setSelectedFranchisee] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -67,6 +77,26 @@ export function Users() {
   const { data: users, isLoading } = useQuery({
     queryKey: ['/api/users'],
     queryFn: () => apiRequest('/users'),
+  });
+
+  // Fetch entities for dropdowns
+  const { data: franchisees } = useQuery({
+    queryKey: ['/api/franchisees'],
+    queryFn: () => apiRequest('/franchisees'),
+  });
+
+  const { data: schools } = useQuery({
+    queryKey: ['/api/schools', selectedFranchisee],
+    queryFn: () => selectedFranchisee 
+      ? apiRequest(`/franchisees/${selectedFranchisee}/schools`)
+      : apiRequest('/schools'),
+    enabled: selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST'].includes(role)),
+  });
+
+  const { data: students } = useQuery({
+    queryKey: ['/api/students'],
+    queryFn: () => apiRequest('/students'),
+    enabled: selectedRoles.includes('PARENT'),
   });
 
   // Create user form
@@ -78,6 +108,9 @@ export function Users() {
       name: '',
       roles: ['PARENT'],
       password: '',
+      franchiseeId: undefined,
+      schoolId: undefined,
+      studentIds: [],
     },
   });
 
@@ -89,6 +122,9 @@ export function Users() {
       email: '',
       name: '',
       roles: ['PARENT'],
+      franchiseeId: undefined,
+      schoolId: undefined,
+      studentIds: [],
     },
   });
 
@@ -188,7 +224,20 @@ export function Users() {
   });
 
   const onCreateSubmit = (data: UserFormData) => {
-    createUserMutation.mutate(data);
+    // Transform data to include entity associations
+    const userData = {
+      username: data.username,
+      email: data.email,
+      name: data.name,
+      password: data.password,
+      roles: data.roles,
+      entityAssociations: {
+        franchiseeId: data.franchiseeId,
+        schoolId: data.schoolId,
+        studentIds: data.studentIds,
+      }
+    };
+    createUserMutation.mutate(userData);
   };
 
   const onEditSubmit = (data: EditUserFormData) => {
@@ -335,9 +384,13 @@ export function Users() {
                               checked={field.value?.includes(role)}
                               onCheckedChange={(checked) => {
                                 if (checked) {
-                                  field.onChange([...field.value, role]);
+                                  const newRoles = [...field.value, role];
+                                  field.onChange(newRoles);
+                                  setSelectedRoles(newRoles);
                                 } else {
-                                  field.onChange(field.value?.filter((r: string) => r !== role));
+                                  const newRoles = field.value?.filter((r: string) => r !== role);
+                                  field.onChange(newRoles);
+                                  setSelectedRoles(newRoles);
                                 }
                               }}
                             />
@@ -351,6 +404,133 @@ export function Users() {
                     </FormItem>
                   )}
                 />
+
+                {/* Conditional Entity Selection Fields */}
+                {selectedRoles.includes('FRANCHISE_ADMIN') && (
+                  <FormField
+                    control={createForm.control}
+                    name="franchiseeId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Franchisee</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select franchisee" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {franchisees?.map((franchisee: any) => (
+                              <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                                {franchisee.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="create-new">+ Create New Franchisee</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST'].includes(role)) && (
+                  <>
+                    <FormField
+                      control={createForm.control}
+                      name="franchiseeId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Franchisee</FormLabel>
+                          <Select onValueChange={(value) => {
+                            const franchiseeId = parseInt(value);
+                            field.onChange(franchiseeId);
+                            setSelectedFranchisee(franchiseeId);
+                          }} value={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select franchisee first" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {franchisees?.map((franchisee: any) => (
+                                <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                                  {franchisee.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {selectedFranchisee && (
+                      <FormField
+                        control={createForm.control}
+                        name="schoolId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Select School</FormLabel>
+                            <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select school" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {schools?.map((school: any) => (
+                                  <SelectItem key={school.id} value={school.id.toString()}>
+                                    {school.name}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="create-new">+ Create New School</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </>
+                )}
+
+                {selectedRoles.includes('PARENT') && (
+                  <FormField
+                    control={createForm.control}
+                    name="studentIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Students</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                          {students?.map((student: any) => (
+                            <div key={student.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`student-${student.id}`}
+                                checked={field.value?.includes(student.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    field.onChange([...(field.value || []), student.id]);
+                                  } else {
+                                    field.onChange(field.value?.filter((id: number) => id !== student.id));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`student-${student.id}`} className="text-sm">
+                                {student.name} ({student.metadata?.grade || 'No grade'})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <Button type="button" variant="outline" size="sm" className="mt-2">
+                          + Create New Student
+                        </Button>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={createForm.control}
                   name="password"
