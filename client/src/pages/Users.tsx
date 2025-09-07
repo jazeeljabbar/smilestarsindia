@@ -21,7 +21,7 @@ const userFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
-  role: z.enum(['admin', 'franchisee', 'school_admin', 'dentist', 'parent']),
+  roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -29,18 +29,21 @@ const editUserFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
-  role: z.enum(['admin', 'franchisee', 'school_admin', 'dentist', 'parent']),
+  roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
 type EditUserFormData = z.infer<typeof editUserFormSchema>;
 
 const roleColors = {
-  admin: 'bg-red-100 text-red-800',
-  franchisee: 'bg-purple-100 text-purple-800',
-  school_admin: 'bg-blue-100 text-blue-800',
-  dentist: 'bg-green-100 text-green-800',
-  parent: 'bg-gray-100 text-gray-800',
+  SYSTEM_ADMIN: 'bg-red-100 text-red-800',
+  ORG_ADMIN: 'bg-orange-100 text-orange-800',
+  FRANCHISE_ADMIN: 'bg-purple-100 text-purple-800',
+  PRINCIPAL: 'bg-blue-100 text-blue-800',
+  SCHOOL_ADMIN: 'bg-cyan-100 text-cyan-800',
+  TEACHER: 'bg-green-100 text-green-800',
+  DENTIST: 'bg-emerald-100 text-emerald-800',
+  PARENT: 'bg-gray-100 text-gray-800',
 };
 
 const statusColors = {
@@ -70,7 +73,7 @@ export function Users() {
       username: '',
       email: '',
       name: '',
-      role: 'parent',
+      roles: ['PARENT'],
       password: '',
     },
   });
@@ -82,7 +85,7 @@ export function Users() {
       username: '',
       email: '',
       name: '',
-      role: 'parent',
+      roles: ['PARENT'],
     },
   });
 
@@ -196,7 +199,7 @@ export function Users() {
       username: user.username,
       email: user.email,
       name: user.name,
-      role: user.role as any,
+      roles: user.roles || ['PARENT'],
     });
   };
 
@@ -405,9 +408,13 @@ export function Users() {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge className={roleColors[user.role as keyof typeof roleColors]}>
-                        {user.role.replace('_', ' ').toUpperCase()}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles?.map((role) => (
+                          <Badge key={role} className={roleColors[role as keyof typeof roleColors]}>
+                            {role.replace('_', ' ')}
+                          </Badge>
+                        )) || <Badge className="bg-gray-100 text-gray-800">No roles</Badge>}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       {getStatusBadge(user.status)}
