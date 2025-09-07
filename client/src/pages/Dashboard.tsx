@@ -107,24 +107,28 @@ export function Dashboard() {
   };
 
   // Franchisee form setup
-  const franchiseeForm = useForm<InsertFranchise>({
-    resolver: zodResolver(insertFranchiseSchema.omit({ franchiseeUserId: true, agreementStatus: true, agreementAcceptedAt: true, agreementToken: true })),
+  const franchiseeForm = useForm<InsertEntity>({
+    resolver: zodResolver(insertEntitySchema),
     defaultValues: {
       name: '',
-      region: '',
-      contactPerson: '',
-      contactEmail: '',
-      contactPhone: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      isActive: true,
+      type: 'FRANCHISEE',
+      status: 'ACTIVE',
+      parentId: 1,
+      metadata: {
+        region: '',
+        franchiseContactPerson: '',
+        franchiseContactEmail: '',
+        franchiseContactPhone: '',
+        franchiseAddress: '',
+        franchiseCity: '',
+        franchiseState: '',
+        franchisePincode: ''
+      }
     },
   });
 
   const createFranchiseMutation = useMutation({
-    mutationFn: async (data: InsertFranchise) => {
+    mutationFn: async (data: InsertEntity) => {
       const response = await fetch('/api/franchises', {
         method: 'POST',
         headers: {

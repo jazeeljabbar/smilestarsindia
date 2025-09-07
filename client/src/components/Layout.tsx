@@ -91,7 +91,7 @@ export function Layout({ children }: LayoutProps) {
                 </div>
                 <div className="hidden md:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name}</div>
-                  <div className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</div>
+                  <div className="text-xs text-gray-500 capitalize">{user?.roles?.join(', ').replace(/_/g, ' ').toLowerCase() || 'No roles'}</div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout}>
                   <LogOut className="h-4 w-4" />
