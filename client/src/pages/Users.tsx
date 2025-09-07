@@ -22,23 +22,25 @@ const userFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
-  roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
+  roles: z.array(z.enum(['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   // Entity associations based on roles
   franchiseeId: z.number().optional(),
   schoolId: z.number().optional(),
   studentIds: z.array(z.number()).optional(),
+  studentSearchQuery: z.string().optional(),
 });
 
 const editUserFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
-  roles: z.array(z.enum(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
+  roles: z.array(z.enum(['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
   // Entity associations based on roles
   franchiseeId: z.number().optional(),
   schoolId: z.number().optional(),
   studentIds: z.array(z.number()).optional(),
+  studentSearchQuery: z.string().optional(),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
@@ -89,11 +91,9 @@ export function Users() {
   });
 
   const { data: schools } = useQuery({
-    queryKey: ['/api/schools', selectedFranchisee],
-    queryFn: () => selectedFranchisee 
-      ? apiRequest(`/franchisees/${selectedFranchisee}/schools`)
-      : apiRequest('/schools'),
-    enabled: selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST'].includes(role)),
+    queryKey: ['/api/schools'],
+    queryFn: () => apiRequest('/schools'),
+    enabled: selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER'].includes(role)),
   });
 
   const { data: students } = useQuery({
@@ -114,6 +114,7 @@ export function Users() {
       franchiseeId: undefined,
       schoolId: undefined,
       studentIds: [],
+      studentSearchQuery: '',
     },
   });
 
@@ -128,6 +129,7 @@ export function Users() {
       franchiseeId: undefined,
       schoolId: undefined,
       studentIds: [],
+      studentSearchQuery: '',
     },
   });
 
@@ -403,7 +405,7 @@ export function Users() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                          {['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
                             <SelectItem key={role} value={role}>
                               {role.replace('_', ' ')}
                             </SelectItem>
@@ -444,98 +446,72 @@ export function Users() {
                   />
                 )}
 
-                {selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST'].includes(role)) && (
-                  <>
-                    <FormField
-                      control={createForm.control}
-                      name="franchiseeId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Select Franchisee</FormLabel>
-                          <Select onValueChange={(value) => {
-                            const franchiseeId = parseInt(value);
-                            field.onChange(franchiseeId);
-                            setSelectedFranchisee(franchiseeId);
-                          }} value={field.value?.toString()}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select franchisee first" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {franchisees?.map((franchisee: any) => (
-                                <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
-                                  {franchisee.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {selectedFranchisee && (
-                      <FormField
-                        control={createForm.control}
-                        name="schoolId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Select School</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select school" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {schools?.map((school: any) => (
-                                  <SelectItem key={school.id} value={school.id.toString()}>
-                                    {school.name}
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="create-new">+ Create New School</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                {selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER'].includes(role)) && (
+                  <FormField
+                    control={createForm.control}
+                    name="schoolId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select School</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select school" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {schools?.map((school: any) => (
+                              <SelectItem key={school.id} value={school.id.toString()}>
+                                {school.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="create-new">+ Create New School</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </>
+                  />
                 )}
 
                 {selectedRoles.includes('PARENT') && (
                   <FormField
                     control={createForm.control}
-                    name="studentIds"
+                    name="studentSearchQuery"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Select Students</FormLabel>
-                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                          {students?.map((student: any) => (
-                            <div key={student.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`student-${student.id}`}
-                                checked={field.value?.includes(student.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([...(field.value || []), student.id]);
-                                  } else {
-                                    field.onChange(field.value?.filter((id: number) => id !== student.id));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`student-${student.id}`} className="text-sm">
-                                {student.name} ({student.metadata?.grade || 'No grade'})
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        <Button type="button" variant="outline" size="sm" className="mt-2">
-                          + Create New Student
-                        </Button>
+                        <FormLabel>Search for Student</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Type student name to search..." 
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage />
+                        {field.value && field.value.length > 2 && (
+                          <div className="mt-2 border rounded-md p-2 bg-gray-50 max-h-40 overflow-y-auto">
+                            {students?.filter((student: any) => 
+                              student.name.toLowerCase().includes(field.value?.toLowerCase())
+                            ).map((student: any) => (
+                              <div 
+                                key={student.id} 
+                                className="p-2 hover:bg-gray-100 cursor-pointer rounded"
+                                onClick={() => {
+                                  // Add student selection logic here
+                                  toast({
+                                    title: 'Student Selected',
+                                    description: `Selected ${student.name}`,
+                                  });
+                                }}
+                              >
+                                <div className="font-medium">{student.name}</div>
+                                <div className="text-sm text-gray-500">
+                                  Grade: {student.metadata?.grade || 'Not specified'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -794,7 +770,7 @@ export function Users() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                          {['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
                             <SelectItem key={role} value={role}>
                               {role.replace('_', ' ')}
                             </SelectItem>
@@ -882,7 +858,7 @@ export function Users() {
                     <SelectValue placeholder="Select role to add" />
                   </SelectTrigger>
                   <SelectContent>
-                    {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT']
+                    {['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT']
                       .filter(role => !((selectedUserForRole as any).roles || []).includes(role))
                       .map((role) => (
                       <SelectItem key={role} value={role}>
