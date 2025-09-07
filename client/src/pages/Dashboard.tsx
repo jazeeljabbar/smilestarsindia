@@ -171,30 +171,95 @@ export function Dashboard() {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statsCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className={`w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                    <stat.icon className={`${stat.color} h-6 w-6`} />
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Quick Actions - Moved to top */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {(user?.role === 'dentist' || user?.role === 'admin') && (
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setShowScreeningForm(true)}
+              >
+                <Stethoscope className="h-4 w-4 mr-2" />
+                Start Student Screening
+              </Button>
+            )}
+            
+            {user?.role === 'admin' && (
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => setShowFranchiseeDialog(true)}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Create Franchisee
+              </Button>
+            )}
+            
+            {(user?.role === 'admin' || user?.role === 'franchisee') && (
+              <>
+                <Button 
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setLocation('/schools?register=true')}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register New School
+                </Button>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => setLocation('/camps')}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Schedule Camp
+                </Button>
+                <Button 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={() => setLocation('/students')}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Register Students
+                </Button>
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={() => setLocation('/reports')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Generate Reports
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Camps */}
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Stats Cards - Left side with 3 columns, reduced width */}
+        <div className="lg:col-span-1">
+          <div className="grid grid-cols-1 gap-4">
+            {statsCards.map((stat) => (
+              <Card key={stat.title}>
+                <CardContent className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className={`w-10 h-10 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
+                        <stat.icon className={`${stat.color} h-5 w-5`} />
+                      </div>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-xs font-medium text-gray-500">{stat.title}</p>
+                      <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Camps - Takes up remaining space */}
+        <div className="lg:col-span-3">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -252,95 +317,6 @@ export function Dashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {(user?.role === 'dentist' || user?.role === 'admin') && (
-                <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
-                  onClick={() => setShowScreeningForm(true)}
-                >
-                  <Stethoscope className="h-4 w-4 mr-2" />
-                  Start Student Screening
-                </Button>
-              )}
-              
-              {user?.role === 'admin' && (
-                <Button 
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
-                  onClick={() => setShowFranchiseeDialog(true)}
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Create Franchisee
-                </Button>
-              )}
-              
-              {(user?.role === 'admin' || user?.role === 'franchisee') && (
-                <>
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
-                    onClick={() => setLocation('/schools?register=true')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Register New School
-                  </Button>
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
-                    onClick={() => setLocation('/camps')}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Schedule Camp
-                  </Button>
-                  <Button 
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white justify-start"
-                    onClick={() => setLocation('/students')}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Register Students
-                  </Button>
-                  <Button 
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white justify-start"
-                    onClick={() => setLocation('/reports')}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generate Reports
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Notifications</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-900">Camp completed successfully</p>
-                  <p className="text-xs text-gray-500">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-900">New dentist assigned</p>
-                  <p className="text-xs text-gray-500">1 day ago</p>
-                </div>
               </div>
             </CardContent>
           </Card>
