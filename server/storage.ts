@@ -126,7 +126,7 @@ export class DatabaseStorage implements IStorage {
   async createEntity(insertEntity: InsertEntity): Promise<Entity> {
     const [entity] = await db
       .insert(entities)
-      .values([insertEntity])
+      .values(insertEntity)
       .returning();
     return entity;
   }
