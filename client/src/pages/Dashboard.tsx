@@ -171,72 +171,70 @@ export function Dashboard() {
         </p>
       </div>
 
-      {/* Quick Actions - Moved to top */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            {(user?.role === 'dentist' || user?.role === 'admin') && (
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setShowScreeningForm(true)}
-              >
-                <Stethoscope className="h-4 w-4 mr-2" />
-                Start Student Screening
-              </Button>
-            )}
-            
-            {user?.role === 'admin' && (
-              <Button 
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => setShowFranchiseeDialog(true)}
-              >
-                <Building2 className="h-4 w-4 mr-2" />
-                Create Franchisee
-              </Button>
-            )}
-            
-            {(user?.role === 'admin' || user?.role === 'franchisee') && (
-              <>
-                <Button 
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => setLocation('/schools?register=true')}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Register New School
-                </Button>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => setLocation('/camps')}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule Camp
-                </Button>
-                <Button 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  onClick={() => setLocation('/students')}
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Register Students
-                </Button>
-                <Button 
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                  onClick={() => setLocation('/reports')}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Reports
-                </Button>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Stats Cards - Left side with 3 columns, reduced width */}
-        <div className="lg:col-span-1">
+        {/* Quick Actions - Moved to top left */}
+        <div>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(user?.role === 'dentist' || user?.role === 'admin') && (
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                  onClick={() => setShowScreeningForm(true)}
+                >
+                  <Stethoscope className="h-4 w-4 mr-2" />
+                  Start Student Screening
+                </Button>
+              )}
+              
+              {user?.role === 'admin' && (
+                <Button 
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
+                  onClick={() => setShowFranchiseeDialog(true)}
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Create Franchisee
+                </Button>
+              )}
+              
+              {(user?.role === 'admin' || user?.role === 'franchisee') && (
+                <>
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
+                    onClick={() => setLocation('/schools?register=true')}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Register New School
+                  </Button>
+                  <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                    onClick={() => setLocation('/camps')}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Camp
+                  </Button>
+                  <Button 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white justify-start"
+                    onClick={() => setLocation('/students')}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Register Students
+                  </Button>
+                  <Button 
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white justify-start"
+                    onClick={() => setLocation('/reports')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Reports
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Stats Cards - Below quick actions */}
           <div className="grid grid-cols-1 gap-4">
             {statsCards.map((stat) => (
               <Card key={stat.title}>
