@@ -536,4 +536,117 @@ router.post('/login', async (req: Request, res: Response) => {
   });
 });
 
+// Legacy API compatibility routes - map old endpoints to new entity system
+// GET /api/franchises - return FRANCHISEE entities
+router.get('/franchises', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchisees = await storage.getEntitiesByType('FRANCHISEE');
+    
+    // Filter based on user access
+    const accessibleEntityIds = req.user!.entityIds;
+    const filteredFranchisees = franchisees.filter(entity => {
+      if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+        return true;
+      }
+      return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+    });
+
+    res.json(filteredFranchisees);
+  } catch (error) {
+    console.error('Get franchises error:', error);
+    res.status(500).json({ error: 'Failed to get franchises' });
+  }
+});
+
+// POST /api/franchises - create FRANCHISEE entity
+router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityData = {
+      ...req.body,
+      type: 'FRANCHISEE' as const,
+      parentId: 1 // Assume parent is Smile Stars India organization
+    };
+    
+    const entity = await storage.createEntity(entityData);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'CREATE_ENTITY',
+      entityId: entity.id,
+      metadata: { entityType: entity.type, entityName: entity.name }
+    });
+
+    res.json(entity);
+  } catch (error) {
+    console.error('Create franchise error:', error);
+    res.status(500).json({ error: 'Failed to create franchise' });
+  }
+});
+
+// GET /api/schools - return SCHOOL entities
+router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schools = await storage.getEntitiesByType('SCHOOL');
+    
+    // Filter based on user access
+    const accessibleEntityIds = req.user!.entityIds;
+    const filteredSchools = schools.filter(entity => {
+      if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+        return true;
+      }
+      return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+    });
+
+    res.json(filteredSchools);
+  } catch (error) {
+    console.error('Get schools error:', error);
+    res.status(500).json({ error: 'Failed to get schools' });
+  }
+});
+
+// POST /api/schools - create SCHOOL entity
+router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityData = {
+      ...req.body,
+      type: 'SCHOOL' as const
+    };
+    
+    const entity = await storage.createEntity(entityData);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'CREATE_ENTITY',
+      entityId: entity.id,
+      metadata: { entityType: entity.type, entityName: entity.name }
+    });
+
+    res.json(entity);
+  } catch (error) {
+    console.error('Create school error:', error);
+    res.status(500).json({ error: 'Failed to create school' });
+  }
+});
+
+// GET /api/students - return STUDENT entities
+router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const students = await storage.getEntitiesByType('STUDENT');
+    
+    // Filter based on user access
+    const accessibleEntityIds = req.user!.entityIds;
+    const filteredStudents = students.filter(entity => {
+      if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+        return true;
+      }
+      return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+    });
+
+    res.json(filteredStudents);
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({ error: 'Failed to get students' });
+  }
+});
+
 export default router;
