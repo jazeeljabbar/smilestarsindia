@@ -26,6 +26,10 @@ export interface IStorage {
   getAllEntities(): Promise<Entity[]>;
   updateEntity(id: number, updates: Partial<InsertEntity>): Promise<Entity>;
   deleteEntity(id: number): Promise<void>;
+  
+  // Entity relationship helpers
+  getSchoolsByFranchisee(franchiseeId: number): Promise<Entity[]>;
+  getStudentsBySchool(schoolId: number): Promise<Entity[]>;
 
   // Memberships
   createMembership(membership: InsertMembership): Promise<Membership>;
@@ -159,6 +163,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEntity(id: number): Promise<void> {
     await db.delete(entities).where(eq(entities.id, id));
+  }
+
+  // Entity relationship helpers
+  async getSchoolsByFranchisee(franchiseeId: number): Promise<Entity[]> {
+    return await db.select().from(entities).where(and(eq(entities.type, 'SCHOOL'), eq(entities.parentId, franchiseeId)));
+  }
+
+  async getStudentsBySchool(schoolId: number): Promise<Entity[]> {
+    return await db.select().from(entities).where(and(eq(entities.type, 'STUDENT'), eq(entities.parentId, schoolId)));
   }
 
   // Memberships

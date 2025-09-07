@@ -72,6 +72,48 @@ function generateMagicLink(token: string): string {
   return `${baseUrl}/auth/magic-link?token=${token}`;
 }
 
+// Get entities by type for dropdowns
+router.get('/entities/:type', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { type } = req.params;
+    const validTypes = ['ORGANIZATION', 'FRANCHISEE', 'SCHOOL', 'STUDENT'];
+    
+    if (!validTypes.includes(type.toUpperCase())) {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    const entities = await storage.getEntitiesByType(type.toUpperCase() as any);
+    res.json(entities);
+  } catch (error) {
+    console.error('Error fetching entities:', error);
+    res.status(500).json({ error: 'Failed to fetch entities' });
+  }
+});
+
+// Get schools by franchisee
+router.get('/franchisees/:franchiseeId/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchiseeId = parseInt(req.params.franchiseeId);
+    const schools = await storage.getSchoolsByFranchisee(franchiseeId);
+    res.json(schools);
+  } catch (error) {
+    console.error('Error fetching schools:', error);
+    res.status(500).json({ error: 'Failed to fetch schools' });
+  }
+});
+
+// Get students by school
+router.get('/schools/:schoolId/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const schoolId = parseInt(req.params.schoolId);
+    const students = await storage.getStudentsBySchool(schoolId);
+    res.json(students);
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
 // Authentication middleware
 async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
