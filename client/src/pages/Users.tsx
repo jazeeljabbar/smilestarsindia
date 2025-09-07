@@ -121,7 +121,7 @@ export function Users() {
       username: '',
       email: '',
       name: '',
-      roles: ['PARENT'],
+      roles: [],
       franchiseeId: undefined,
       schoolId: undefined,
       studentIds: [],
@@ -376,30 +376,27 @@ export function Users() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Roles</FormLabel>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'] as const).map((role) => (
-                          <div key={role} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`create-${role}`}
-                              checked={field.value?.includes(role)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  const newRoles = [...field.value, role];
-                                  field.onChange(newRoles);
-                                  setSelectedRoles(newRoles);
-                                } else {
-                                  const newRoles = field.value?.filter((r: string) => r !== role);
-                                  field.onChange(newRoles);
-                                  setSelectedRoles(newRoles);
-                                }
-                              }}
-                            />
-                            <label htmlFor={`create-${role}`} className="text-sm">
+                      <Select 
+                        value={field.value?.[0] || ""} 
+                        onValueChange={(value) => {
+                          const newRoles = [value];
+                          field.onChange(newRoles);
+                          setSelectedRoles(newRoles);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select primary role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                            <SelectItem key={role} value={role}>
                               {role.replace('_', ' ')}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -782,27 +779,26 @@ export function Users() {
                   name="roles"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Roles</FormLabel>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'] as const).map((role) => (
-                          <div key={role} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`edit-${role}`}
-                              checked={field.value?.includes(role)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange([...field.value, role]);
-                                } else {
-                                  field.onChange(field.value?.filter((r: string) => r !== role));
-                                }
-                              }}
-                            />
-                            <label htmlFor={`edit-${role}`} className="text-sm">
+                      <FormLabel>Primary Role</FormLabel>
+                      <Select 
+                        value={field.value?.[0] || ""} 
+                        onValueChange={(value) => {
+                          field.onChange([value]);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select primary role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                            <SelectItem key={role} value={role}>
                               {role.replace('_', ' ')}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
