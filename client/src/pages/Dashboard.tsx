@@ -24,6 +24,10 @@ export function Dashboard() {
   const [showFranchiseeDialog, setShowFranchiseeDialog] = useState(false);
   const [, setLocation] = useLocation();
 
+  // Helper functions to check user roles
+  const hasRole = (role: string) => user?.roles?.includes(role) || false;
+  const hasAnyRole = (roles: string[]) => user?.roles?.some(r => roles.includes(r)) || false;
+
   const { data: stats } = useQuery({
     queryKey: ['/api/dashboard/stats'],
     queryFn: () => apiRequest('/dashboard/stats'),
@@ -207,7 +211,7 @@ export function Dashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {user?.role === 'dentist' && (
+              {hasRole('DENTIST') && (
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
                   onClick={() => setShowScreeningForm(true)}
@@ -217,7 +221,7 @@ export function Dashboard() {
                 </Button>
               )}
               
-              {user?.role === 'admin' && (
+              {hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN']) && (
                 <>
                   <Button 
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
@@ -236,7 +240,7 @@ export function Dashboard() {
                 </>
               )}
               
-              {(user?.role === 'admin' || user?.role === 'franchisee') && (
+              {hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']) && (
                 <>
                   <Button 
                     className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
