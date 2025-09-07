@@ -109,7 +109,7 @@ export function Users() {
       username: '',
       email: '',
       name: '',
-      roles: ['PARENT'],
+      roles: [],
       password: '',
       franchiseeId: undefined,
       schoolId: undefined,
