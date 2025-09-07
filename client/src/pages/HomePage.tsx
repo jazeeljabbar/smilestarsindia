@@ -38,7 +38,7 @@ export function HomePage() {
               </div>
             )}
             <Link href="/login">
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                 Sign In
               </Button>
             </Link>
