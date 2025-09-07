@@ -48,9 +48,11 @@ const roleColors = {
 };
 
 const statusColors = {
-  active: 'bg-green-100 text-green-800 border-green-200',
-  inactive: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  suspended: 'bg-red-100 text-red-800 border-red-200',
+  INVITED: 'bg-blue-100 text-blue-800 border-blue-200',
+  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  ACTIVE: 'bg-green-100 text-green-800 border-green-200',
+  SUSPENDED: 'bg-red-100 text-red-800 border-red-200',
+  ARCHIVED: 'bg-gray-100 text-gray-800 border-gray-200',
 };
 
 export function Users() {
@@ -197,10 +199,10 @@ export function Users() {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     editForm.reset({
-      username: user.username,
+      username: user.email, // Using email as username since User doesn't have username
       email: user.email,
       name: user.name,
-      roles: user.roles || ['PARENT'],
+      roles: (user as any).roles || ['PARENT'], // Type assertion for now
     });
   };
 
@@ -213,10 +215,10 @@ export function Users() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusClass = statusColors[status as keyof typeof statusColors] || statusColors.inactive;
+    const statusClass = statusColors[status as keyof typeof statusColors] || statusColors.PENDING;
     return (
       <Badge className={statusClass}>
-        {status.toUpperCase()}
+        {status}
       </Badge>
     );
   };
@@ -326,7 +328,7 @@ export function Users() {
                     <FormItem>
                       <FormLabel>Roles</FormLabel>
                       <div className="grid grid-cols-2 gap-2">
-                        {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                        {(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'] as const).map((role) => (
                           <div key={role} className="flex items-center space-x-2">
                             <Checkbox
                               id={`create-${role}`}
@@ -411,12 +413,12 @@ export function Users() {
                     </td>
                     <td className="py-3 px-4">
                       <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                        {user.username}
+                        {user.email}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1">
-                        {user.roles?.map((role) => (
+                        {(user as any).roles?.map((role: string) => (
                           <Badge key={role} className={roleColors[role as keyof typeof roleColors]}>
                             {role.replace('_', ' ')}
                           </Badge>
@@ -444,20 +446,20 @@ export function Users() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => handleStatusChange(user.id, 'active')}
-                              disabled={user.status === 'active'}
+                              onClick={() => handleStatusChange(user.id, 'ACTIVE')}
+                              disabled={user.status === 'ACTIVE'}
                             >
                               Set Active
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleStatusChange(user.id, 'inactive')}
-                              disabled={user.status === 'inactive'}
+                              onClick={() => handleStatusChange(user.id, 'PENDING')}
+                              disabled={user.status === 'PENDING'}
                             >
-                              Set Inactive
+                              Set Pending
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleStatusChange(user.id, 'suspended')}
-                              disabled={user.status === 'suspended'}
+                              onClick={() => handleStatusChange(user.id, 'SUSPENDED')}
+                              disabled={user.status === 'SUSPENDED'}
                               className="text-red-600"
                             >
                               Suspend User
@@ -602,7 +604,7 @@ export function Users() {
                     <FormItem>
                       <FormLabel>Roles</FormLabel>
                       <div className="grid grid-cols-2 gap-2">
-                        {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'].map((role) => (
+                        {(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'] as const).map((role) => (
                           <div key={role} className="flex items-center space-x-2">
                             <Checkbox
                               id={`edit-${role}`}
