@@ -70,6 +70,9 @@ export function Users() {
   const [itemsPerPage] = useState(10);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedFranchisee, setSelectedFranchisee] = useState<number | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showAddRoleDialog, setShowAddRoleDialog] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -257,6 +260,16 @@ export function Users() {
 
   const handleDelete = (id: number) => {
     deleteUserMutation.mutate(id);
+    setUserToDelete(null);
+  };
+
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+  };
+
+  const handleAddRole = (user: User) => {
+    setSelectedUserForRole(user);
+    setShowAddRoleDialog(true);
   };
 
   const handleStatusChange = (id: number, status: string) => {
@@ -641,33 +654,22 @@ export function Users() {
                             >
                               Suspend User
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleAddRole(user)}
+                              className="text-blue-600"
+                            >
+                              <UserCog className="w-4 h-4 mr-2" />
+                              Add Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(user)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete User
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete User</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {user.name}? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(user.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </div>
                     </td>
                   </tr>
@@ -817,6 +819,85 @@ export function Users() {
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete User Confirmation Dialog */}
+      {userToDelete && (
+        <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {userToDelete.name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDelete(userToDelete.id)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Add Role Dialog */}
+      {selectedUserForRole && (
+        <Dialog open={showAddRoleDialog} onOpenChange={setShowAddRoleDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add Role to {selectedUserForRole.name}</DialogTitle>
+              <DialogDescription>
+                Select additional roles for this user.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Current Roles:</label>
+                <div className="flex flex-wrap gap-1">
+                  {((selectedUserForRole as any).roles || []).map((role: string) => (
+                    <Badge key={role} className={roleColors[role as keyof typeof roleColors]}>
+                      {role.replace('_', ' ')}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Add New Role:</label>
+                <Select onValueChange={(role) => {
+                  // Here you would implement the add role logic
+                  toast({
+                    title: 'Feature Coming Soon',
+                    description: 'Role management will be available in the next update.',
+                  });
+                  setShowAddRoleDialog(false);
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT']
+                      .filter(role => !((selectedUserForRole as any).roles || []).includes(role))
+                      .map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowAddRoleDialog(false)}>
+                Cancel
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       )}
