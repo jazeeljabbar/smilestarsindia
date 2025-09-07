@@ -277,67 +277,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Camps - Full width below */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Recent Camps</CardTitle>
-            {(user?.role === 'admin' || user?.role === 'franchisee') && (
-              <Button onClick={() => setLocation('/camps')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Schedule Camp
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    School
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dates
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Students
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {camps.slice(0, 5).map((camp: any) => (
-                  <tr key={camp.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {camp.school?.name || 'Unknown School'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {camp.school?.city}, {camp.school?.state}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(camp.startDate).toLocaleDateString()} - {new Date(camp.endDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {camp.screeningsCount || 0} / {camp.expectedStudents}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge {...getStatusBadge(camp.status)}>
-                        {camp.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Screening Form Modal */}
       {showScreeningForm && (
