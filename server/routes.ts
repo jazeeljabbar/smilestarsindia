@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import { MailService } from '@sendgrid/mail';
 import { storage } from "./storage";
 import { 
@@ -260,6 +261,84 @@ router.post('/auth/accept-agreements', authenticateToken, async (req: Authentica
   } catch (error) {
     console.error('Accept agreements error:', error);
     res.status(500).json({ error: 'Failed to accept agreements' });
+  }
+});
+
+// Traditional password login (for existing users)
+router.post('/auth/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find user by email
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if user has a password set
+    if (!user.password) {
+      return res.status(401).json({ 
+        error: 'Account not set up for password login. Please use magic link authentication.',
+        requiresMagicLink: true
+      });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Get user memberships and roles
+    const memberships = await storage.getMembershipsByUser(user.id);
+    const roles = memberships.map(m => m.role);
+    const entityIds = memberships.map(m => m.entityId);
+
+    // Check for pending agreements
+    const applicableAgreements = await storage.getAgreementsByRole(roles);
+    const userAcceptances = await storage.getAcceptancesByUser(user.id);
+    const acceptedAgreementIds = userAcceptances.map(a => a.agreementId);
+    const pendingAgreements = applicableAgreements.filter(
+      agreement => !acceptedAgreementIds.includes(agreement.id)
+    );
+
+    // Create JWT token
+    const jwtToken = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email,
+        roles,
+        entityIds 
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token: jwtToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles,
+        status: user.status
+      },
+      requiresAgreements: pendingAgreements.length > 0,
+      pendingAgreements: pendingAgreements.map(a => ({
+        id: a.id,
+        title: a.title,
+        bodyMd: a.bodyMd
+      }))
+    });
+    
+    console.log(`✅ User logged in via password: ${user.email} (${roles.join(', ')})`);
+  } catch (error) {
+    console.error('Password login error:', error);
+    res.status(500).json({ error: 'Failed to process login' });
   }
 });
 
