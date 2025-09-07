@@ -88,6 +88,7 @@ export function Users() {
   const { data: franchisees } = useQuery({
     queryKey: ['/api/franchisees'],
     queryFn: () => apiRequest('/franchisees'),
+    enabled: selectedRoles.some(role => ['FRANCHISE_ADMIN', 'DENTIST', 'TECHNICIAN'].includes(role)),
   });
 
   const { data: schools } = useQuery({
@@ -418,7 +419,7 @@ export function Users() {
                 />
 
                 {/* Conditional Entity Selection Fields */}
-                {selectedRoles.includes('FRANCHISE_ADMIN') && (
+                {selectedRoles.some(role => ['FRANCHISE_ADMIN', 'DENTIST', 'TECHNICIAN'].includes(role)) && (
                   <FormField
                     control={createForm.control}
                     name="franchiseeId"
