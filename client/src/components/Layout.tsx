@@ -3,6 +3,7 @@ import { Smile, Bell, User, LogOut, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth.tsx';
+import { getColorScheme, colorSchemes } from '@/lib/colorSchemes';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,13 +14,13 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: 'home' },
-    { name: 'Users', href: '/users', icon: 'user-cog', adminOnly: true },
-    { name: 'Franchisees', href: '/franchisees', icon: 'building-2', adminOnly: true },
-    { name: 'Schools', href: '/schools', icon: 'school' },
-    { name: 'Camps', href: '/camps', icon: 'calendar' },
-    { name: 'Students', href: '/students', icon: 'users' },
-    { name: 'Reports', href: '/reports', icon: 'file-text' },
+    { name: 'Dashboard', href: '/dashboard', icon: 'home', colorScheme: 'dashboard' },
+    { name: 'Users', href: '/users', icon: 'user-cog', adminOnly: true, colorScheme: 'users' },
+    { name: 'Franchisees', href: '/franchisees', icon: 'building-2', adminOnly: true, colorScheme: 'franchisees' },
+    { name: 'Schools', href: '/schools', icon: 'school', colorScheme: 'schools' },
+    { name: 'Camps', href: '/camps', icon: 'calendar', colorScheme: 'camps' },
+    { name: 'Students', href: '/students', icon: 'users', colorScheme: 'students' },
+    { name: 'Reports', href: '/reports', icon: 'file-text', colorScheme: 'reports' },
   ];
 
   // Helper function to check if user has specific role
@@ -49,15 +50,24 @@ export function Layout({ children }: LayoutProps) {
 
   const NavItems = () => (
     <>
-      {filteredNavigation.map((item) => (
-        <Link key={item.name} href={item.href} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-          location === item.href
-            ? 'text-blue-600 border-b-2 border-blue-600'
-            : 'text-gray-500 hover:text-gray-700'
-        }`}>
-          {item.name}
-        </Link>
-      ))}
+      {filteredNavigation.map((item) => {
+        const colors = colorSchemes[item.colorScheme as keyof typeof colorSchemes];
+        const isActive = location === item.href;
+        
+        return (
+          <Link 
+            key={item.name} 
+            href={item.href} 
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive
+                ? colors.active
+                : `text-gray-500 hover:${colors.text}`
+            }`}
+          >
+            {item.name}
+          </Link>
+        );
+      })}
     </>
   );
 
