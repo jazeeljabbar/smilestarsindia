@@ -55,12 +55,15 @@ export function Login() {
         localStorage.setItem('token', result.token);
         localStorage.setItem('user', JSON.stringify(result.user));
         
+        // Call the login function to update auth context
+        login(result.token, result.user);
+        
         toast({
           title: 'Welcome back!',
           description: `Logged in successfully as ${result.user.name}`,
         });
 
-        // Redirect to dashboard
+        // Redirect to dashboard (will be handled by role-based routing)
         setLocation('/dashboard');
       } else {
         if (result.requiresMagicLink) {

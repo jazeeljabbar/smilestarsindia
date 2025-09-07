@@ -22,18 +22,28 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Reports', href: '/reports', icon: 'file-text' },
   ];
 
+  // Helper function to check if user has specific role
+  const hasRole = (role: string) => user?.roles?.includes(role) || false;
+  const hasAnyRole = (roles: string[]) => user?.roles?.some(r => roles.includes(r)) || false;
+
   const filteredNavigation = navigation.filter(item => {
-    // Admin-only items
-    if (item.adminOnly && user?.role !== 'admin') {
+    if (!user?.roles) return false;
+    
+    // Admin-only items - check for any admin role
+    if (item.adminOnly && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
       return false;
     }
     
-    if (user?.role === 'parent') {
+    // Parent users only see Reports
+    if (hasRole('PARENT') && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN'])) {
       return item.name === 'Reports';
     }
-    if (user?.role === 'school_admin') {
-      return ['Dashboard', 'Students'].includes(item.name);
+    
+    // School-level roles see limited navigation
+    if (hasAnyRole(['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER']) && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
+      return ['Dashboard', 'Students', 'Camps', 'Reports'].includes(item.name);
     }
+    
     return true;
   });
 

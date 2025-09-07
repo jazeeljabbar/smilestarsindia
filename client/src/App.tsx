@@ -49,8 +49,27 @@ function AppRoutes() {
 
   // Show protected routes for authenticated users
   const getDashboardComponent = () => {
-    if (user?.role === 'franchisee') return FranchiseeDashboard;
-    if (user?.role === 'school_admin') return SchoolAdminDashboard;
+    if (!user?.roles) return Dashboard;
+    
+    // Priority-based dashboard selection for multiple roles
+    const roles = user.roles;
+    
+    // System Admin and Org Admin get main Dashboard
+    if (roles.includes('SYSTEM_ADMIN') || roles.includes('ORG_ADMIN')) {
+      return Dashboard;
+    }
+    
+    // Franchise Admin gets franchise dashboard
+    if (roles.includes('FRANCHISE_ADMIN')) {
+      return FranchiseeDashboard;
+    }
+    
+    // School-level roles get school dashboard
+    if (roles.includes('PRINCIPAL') || roles.includes('SCHOOL_ADMIN')) {
+      return SchoolAdminDashboard;
+    }
+    
+    // Default to main dashboard for other roles
     return Dashboard;
   };
 
