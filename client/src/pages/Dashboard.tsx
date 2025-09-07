@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { insertFranchiseSchema, type InsertFranchise } from '@shared/schema';
+import { insertEntitySchema, type InsertEntity } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 import { ScreeningForm } from '@/components/ScreeningForm';
 import { useState } from 'react';

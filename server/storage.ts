@@ -151,7 +151,7 @@ export class DatabaseStorage implements IStorage {
   async updateEntity(id: number, updates: Partial<InsertEntity>): Promise<Entity> {
     const [entity] = await db
       .update(entities)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: new Date() } as any)
       .where(eq(entities.id, id))
       .returning();
     return entity;
@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
   async createParentStudentLink(insertLink: InsertParentStudentLink): Promise<ParentStudentLink> {
     const [link] = await db
       .insert(parentStudentLinks)
-      .values([insertLink])
+      .values([insertLink as any])
       .returning();
     return link;
   }
@@ -220,7 +220,7 @@ export class DatabaseStorage implements IStorage {
   async createAgreement(insertAgreement: InsertAgreement): Promise<Agreement> {
     const [agreement] = await db
       .insert(agreements)
-      .values([insertAgreement])
+      .values([insertAgreement as any])
       .returning();
     return agreement;
   }
@@ -270,7 +270,7 @@ export class DatabaseStorage implements IStorage {
   async createMagicToken(insertToken: InsertMagicToken): Promise<MagicToken> {
     const [token] = await db
       .insert(magicTokens)
-      .values([insertToken])
+      .values([insertToken as any])
       .returning();
     return token;
   }
@@ -358,7 +358,7 @@ export class DatabaseStorage implements IStorage {
   async createScreening(insertScreening: InsertScreening): Promise<Screening> {
     const [screening] = await db
       .insert(screenings)
-      .values([insertScreening])
+      .values([insertScreening as any])
       .returning();
     return screening;
   }
@@ -387,7 +387,7 @@ export class DatabaseStorage implements IStorage {
   async updateScreening(id: number, updates: Partial<InsertScreening>): Promise<Screening> {
     const [screening] = await db
       .update(screenings)
-      .set(updates)
+      .set(updates as any)
       .where(eq(screenings.id, id))
       .returning();
     return screening;

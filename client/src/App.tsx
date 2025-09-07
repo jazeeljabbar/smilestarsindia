@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Layout } from '@/components/Layout';
 import { HomePage } from '@/pages/HomePage';
 import { Login } from '@/pages/Login';
+import MagicLink from '@/pages/MagicLink';
 import { Dashboard } from '@/pages/Dashboard';
 import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
 import SchoolAdminDashboard from '@/pages/SchoolAdminDashboard';
@@ -37,6 +38,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/login" component={Login} />
+        <Route path="/auth/magic-link" component={MagicLink} />
         <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
         <Route component={HomePage} /> {/* Default to homepage */}
       </Switch>
