@@ -104,9 +104,6 @@ export const memberships = pgTable("memberships", {
   userIdx: index("memberships_user_idx").on(table.userId),
   entityIdx: index("memberships_entity_idx").on(table.entityId),
   roleIdx: index("memberships_role_idx").on(table.role),
-  // Unique constraints for principal and school_admin
-  principalUnique: unique("principal_per_entity").on(table.entityId, table.role),
-  schoolAdminUnique: unique("school_admin_per_entity").on(table.entityId, table.role),
 }));
 
 // Parent-Student relationships (many-to-many)
