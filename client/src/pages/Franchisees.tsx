@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { insertEntitySchema, type InsertEntity } from '@shared/schema';
+import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
@@ -23,14 +24,14 @@ export function Franchisees() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFranchise, setEditingFranchise] = useState<any>(null);
 
-  // Only admins can access this page
-  if (user?.role !== 'admin') {
+  // Only system admins can access this page
+  if (!user?.roles?.includes('SYSTEM_ADMIN')) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600">Only administrators can manage franchisees.</p>
+          <p className="text-gray-600">Only system administrators can manage franchisees.</p>
         </div>
       </div>
     );
@@ -47,31 +48,62 @@ export function Franchisees() {
     },
   });
 
-  const form = useForm<InsertFranchise>({
-    resolver: zodResolver(insertFranchiseSchema.omit({ franchiseeUserId: true, agreementStatus: true, agreementAcceptedAt: true, agreementToken: true })),
+  const franchiseFormSchema = z.object({
+    name: z.string().min(1, 'Franchise name is required'),
+    region: z.string().min(1, 'Region is required'),
+    franchiseContactPerson: z.string().min(1, 'Contact person is required'),
+    franchiseContactEmail: z.string().email('Invalid email address'),
+    franchiseContactPhone: z.string().min(1, 'Contact phone is required'),
+    franchiseAddress: z.string().min(1, 'Address is required'),
+    franchiseCity: z.string().min(1, 'City is required'),
+    franchiseState: z.string().min(1, 'State is required'),
+    franchisePincode: z.string().min(1, 'Pincode is required'),
+  });
+
+  type FranchiseFormData = z.infer<typeof franchiseFormSchema>;
+
+  const form = useForm<FranchiseFormData>({
+    resolver: zodResolver(franchiseFormSchema),
     defaultValues: {
       name: '',
       region: '',
-      contactPerson: '',
-      contactEmail: '',
-      contactPhone: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      isActive: true,
+      franchiseContactPerson: '',
+      franchiseContactEmail: '',
+      franchiseContactPhone: '',
+      franchiseAddress: '',
+      franchiseCity: '',
+      franchiseState: '',
+      franchisePincode: '',
     },
   });
 
   const createFranchiseMutation = useMutation({
-    mutationFn: async (data: InsertFranchise) => {
+    mutationFn: async (data: FranchiseFormData) => {
+      // Transform the form data to entity format
+      const entityData = {
+        type: 'FRANCHISEE',
+        name: data.name,
+        status: 'ACTIVE',
+        parentId: 1, // Assume parent is Smile Stars India organization
+        metadata: {
+          region: data.region,
+          franchiseContactPerson: data.franchiseContactPerson,
+          franchiseContactEmail: data.franchiseContactEmail,
+          franchiseContactPhone: data.franchiseContactPhone,
+          franchiseAddress: data.franchiseAddress,
+          franchiseCity: data.franchiseCity,
+          franchiseState: data.franchiseState,
+          franchisePincode: data.franchisePincode,
+        }
+      };
+      
       const response = await fetch('/api/franchises', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(entityData),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -125,10 +157,28 @@ export function Franchisees() {
   });
 
   const updateFranchiseMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: InsertFranchise }) => {
+    mutationFn: async ({ id, data }: { id: number; data: FranchiseFormData }) => {
+      // Transform the form data to entity format
+      const entityData = {
+        type: 'FRANCHISEE',
+        name: data.name,
+        status: 'ACTIVE',
+        parentId: 1,
+        metadata: {
+          region: data.region,
+          franchiseContactPerson: data.franchiseContactPerson,
+          franchiseContactEmail: data.franchiseContactEmail,
+          franchiseContactPhone: data.franchiseContactPhone,
+          franchiseAddress: data.franchiseAddress,
+          franchiseCity: data.franchiseCity,
+          franchiseState: data.franchiseState,
+          franchisePincode: data.franchisePincode,
+        }
+      };
+      
       const response = await apiRequest(`/api/franchises/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify(entityData),
       });
       return response.json();
     },
@@ -152,7 +202,7 @@ export function Franchisees() {
     },
   });
 
-  const onSubmit = (data: InsertFranchise) => {
+  const onSubmit = (data: FranchiseFormData) => {
     if (editingFranchise) {
       updateFranchiseMutation.mutate({ id: editingFranchise.id, data });
     } else {
@@ -164,29 +214,27 @@ export function Franchisees() {
   useEffect(() => {
     if (editingFranchise) {
       form.reset({
-        name: editingFranchise.name,
-        region: editingFranchise.region,
-        contactPerson: editingFranchise.contactPerson,
-        contactEmail: editingFranchise.contactEmail,
-        contactPhone: editingFranchise.contactPhone,
-        address: editingFranchise.address,
-        city: editingFranchise.city,
-        state: editingFranchise.state,
-        pincode: editingFranchise.pincode,
-        isActive: editingFranchise.isActive,
+        name: editingFranchise.name || '',
+        region: editingFranchise.metadata?.region || '',
+        franchiseContactPerson: editingFranchise.metadata?.franchiseContactPerson || '',
+        franchiseContactEmail: editingFranchise.metadata?.franchiseContactEmail || '',
+        franchiseContactPhone: editingFranchise.metadata?.franchiseContactPhone || '',
+        franchiseAddress: editingFranchise.metadata?.franchiseAddress || '',
+        franchiseCity: editingFranchise.metadata?.franchiseCity || '',
+        franchiseState: editingFranchise.metadata?.franchiseState || '',
+        franchisePincode: editingFranchise.metadata?.franchisePincode || '',
       });
     } else {
       form.reset({
         name: '',
         region: '',
-        contactPerson: '',
-        contactEmail: '',
-        contactPhone: '',
-        address: '',
-        city: '',
-        state: '',
-        pincode: '',
-        isActive: true,
+        franchiseContactPerson: '',
+        franchiseContactEmail: '',
+        franchiseContactPhone: '',
+        franchiseAddress: '',
+        franchiseCity: '',
+        franchiseState: '',
+        franchisePincode: '',
       });
     }
   }, [editingFranchise, form]);
@@ -291,7 +339,7 @@ export function Franchisees() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="contactPerson"
+                      name="franchiseContactPerson"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Contact Person *</FormLabel>
@@ -304,7 +352,7 @@ export function Franchisees() {
                     />
                     <FormField
                       control={form.control}
-                      name="contactEmail"
+                      name="franchiseContactEmail"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Email Address *</FormLabel>
@@ -317,7 +365,7 @@ export function Franchisees() {
                     />
                     <FormField
                       control={form.control}
-                      name="contactPhone"
+                      name="franchiseContactPhone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Phone Number *</FormLabel>
@@ -336,7 +384,7 @@ export function Franchisees() {
                   <h3 className="text-lg font-medium text-gray-900">Address</h3>
                   <FormField
                     control={form.control}
-                    name="address"
+                    name="franchiseAddress"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Street Address *</FormLabel>
@@ -350,7 +398,7 @@ export function Franchisees() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
-                      name="city"
+                      name="franchiseCity"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>City *</FormLabel>
@@ -363,7 +411,7 @@ export function Franchisees() {
                     />
                     <FormField
                       control={form.control}
-                      name="state"
+                      name="franchiseState"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>State *</FormLabel>
@@ -376,7 +424,7 @@ export function Franchisees() {
                     />
                     <FormField
                       control={form.control}
-                      name="pincode"
+                      name="franchisePincode"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Pincode</FormLabel>
