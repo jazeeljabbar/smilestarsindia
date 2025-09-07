@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export function Login() {
   const [, setLocation] = useLocation();
 
-  // Redirect to magic link authentication  
+  // Redirect to simple authentication  
   React.useEffect(() => {
-    setLocation('/auth/magic-link');
+    setLocation('/auth/simple-auth');
   }, [setLocation]);
 
   return (

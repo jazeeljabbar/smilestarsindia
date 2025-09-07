@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { HomePage } from '@/pages/HomePage';
 import { Login } from '@/pages/Login';
 import MagicLink from '@/pages/MagicLink';
+import SimpleAuth from '@/pages/SimpleAuth';
 import { Dashboard } from '@/pages/Dashboard';
 import { FranchiseeDashboard } from '@/pages/FranchiseeDashboard';
 import SchoolAdminDashboard from '@/pages/SchoolAdminDashboard';
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/" component={HomePage} />
         <Route path="/login" component={Login} />
         <Route path="/auth/magic-link" component={MagicLink} />
+        <Route path="/auth/simple-auth" component={SimpleAuth} />
         <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
         <Route component={HomePage} /> {/* Default to homepage */}
       </Switch>
