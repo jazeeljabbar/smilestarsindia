@@ -1748,33 +1748,55 @@ router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), asyn
 // Dashboard statistics
 router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log('=== DASHBOARD STATS SIMPLE TEST ===');
-    
-    // Test just the database connection first
     const schools = await storage.getAllSchools();
-    console.log('✓ Schools:', schools.length);
-    
     const users = await storage.getAllUsers();
-    console.log('✓ Users:', users.length);
-    
     const franchises = await storage.getAllFranchises();
-    console.log('✓ Franchises:', franchises.length);
     
-    // Simple response with actual data
+    let camps = [];
+    let students = [];
+    let screenings = [];
+    let reports = [];
+    
+    try {
+      camps = await storage.getAllCamps();
+    } catch (error) {
+      console.error('Error fetching camps:', error);
+    }
+    
+    try {
+      students = await storage.getAllStudents();
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+    
+    try {
+      screenings = await storage.getAllScreenings();
+    } catch (error) {
+      console.error('Error fetching screenings:', error);
+    }
+    
+    try {
+      reports = await storage.getAllReports();
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    }
+
+    const activeCamps = camps.filter(c => c.status === 'active');
+    const completedScreenings = screenings.filter(s => s.isCompleted);
+
     const statsData = {
       totalSchools: schools.length,
-      totalCamps: 0, // temporary hardcode
-      activeCamps: 0,
-      studentsScreened: 0,
-      reportsGenerated: 0,
+      totalCamps: camps.length,
+      activeCamps: activeCamps.length,
+      studentsScreened: completedScreenings.length,
+      reportsGenerated: reports.length,
       totalFranchises: franchises.length,
       totalUsers: users.length
     };
     
-    console.log('✓ Sending stats:', statsData);
     res.json(statsData);
   } catch (error) {
-    console.error('❌ Dashboard stats error:', error);
+    console.error('Dashboard stats error:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard stats' });
   }
 });
