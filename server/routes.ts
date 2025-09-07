@@ -1749,26 +1749,62 @@ router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), asyn
 router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('=== DASHBOARD STATS DEBUG ===');
-    const schools = await storage.getAllSchools();
-    console.log('Schools fetched:', schools.length, schools);
     
-    const camps = await storage.getAllCamps();
-    console.log('Camps fetched:', camps.length, camps);
+    let schools = [];
+    try {
+      schools = await storage.getAllSchools();
+      console.log('Schools fetched:', schools.length);
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+    }
     
-    const students = await storage.getAllStudents();
-    console.log('Students fetched:', students.length, students);
+    let camps = [];
+    try {
+      camps = await storage.getAllCamps();
+      console.log('Camps fetched:', camps.length);
+    } catch (error) {
+      console.error('Error fetching camps:', error);
+    }
     
-    const screenings = await storage.getAllScreenings();
-    console.log('Screenings fetched:', screenings.length, screenings);
+    let students = [];
+    try {
+      students = await storage.getAllStudents();
+      console.log('Students fetched:', students.length);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
     
-    const reports = await storage.getAllReports();
-    console.log('Reports fetched:', reports.length, reports);
+    let screenings = [];
+    try {
+      screenings = await storage.getAllScreenings();
+      console.log('Screenings fetched:', screenings.length);
+    } catch (error) {
+      console.error('Error fetching screenings:', error);
+    }
     
-    const franchises = await storage.getAllFranchises();
-    console.log('Franchises fetched:', franchises.length, franchises);
+    let reports = [];
+    try {
+      reports = await storage.getAllReports();
+      console.log('Reports fetched:', reports.length);
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    }
     
-    const users = await storage.getAllUsers();
-    console.log('Users fetched:', users.length, users);
+    let franchises = [];
+    try {
+      franchises = await storage.getAllFranchises();
+      console.log('Franchises fetched:', franchises.length);
+    } catch (error) {
+      console.error('Error fetching franchises:', error);
+    }
+    
+    let users = [];
+    try {
+      users = await storage.getAllUsers();
+      console.log('Users fetched:', users.length);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
 
     const activeCamps = camps.filter(c => c.status === 'active');
     const completedScreenings = screenings.filter(s => s.isCompleted);
