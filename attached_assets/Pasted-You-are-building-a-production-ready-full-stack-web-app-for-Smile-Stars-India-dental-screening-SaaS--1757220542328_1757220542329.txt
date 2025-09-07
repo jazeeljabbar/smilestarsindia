@@ -1,0 +1,301 @@
+You are building a production-ready full-stack web app for Smile Stars India (dental screening SaaS for schools) that implements the following user logic and entity model. Use a monorepo with:
+
+Frontend: React + TypeScript + Vite + TailwindCSS + React Router
+
+Backend: Node.js + TypeScript + Express
+
+Auth: Passwordless magic-link (email) + optional OTP; JWT session; role+scope based
+
+DB & ORM: PostgreSQL + Prisma (use SQLite in dev if Postgres unavailable)
+
+Email: Nodemailer with file transport in dev (prints to console) and SMTP env vars for prod
+
+Testing: Vitest (frontend), Jest (backend)
+
+Tooling: ESLint + Prettier, dotenv, zod for validation
+
+Scripts: dev (concurrently run client+server), db:migrate, db:seed
+
+1) Core Domain Rules (implement strictly)
+
+Entities (hierarchy):
+
+organization (Smile Stars India, only one root)
+
+franchisee (many)
+
+school (many)
+
+student (many)
+
+Users: Single login per person. Users gain permissions via memberships scoped to an entity.
+
+Roles (scoped):
+
+Global: system_admin (superuser), org_admin (for the root org)
+
+Franchisee scope: franchise_admin, franchise_staff
+
+School scope: principal, school_admin, teacher
+
+Household scope: parent
+
+Constraints & relationships:
+
+Exactly one principal per school (unique constraint).
+
+Exactly one school_admin per school (unique constraint).
+
+Many teachers per school.
+
+Student is an entity, not a user.
+
+Parent ↔ Student is many-to-many with relationship type (mother, father, guardian) and custody flags.
+
+A user may have multiple memberships (e.g., Teacher at School A and Parent of Student X).
+
+No orphaning: cannot delete a franchisee with active schools; cannot delete a school with students/memberships.
+
+Onboarding & Agreements:
+
+Never email raw passwords. Use invite flow: send magic link to set password (token TTL 48h).
+
+On first login, require acceptance of versioned agreements (by applicable role/scope) before allowing any actions.
+
+Store full acceptance log (user, agreement version, timestamp, IP, user agent).
+
+Creation flows (UI & API):
+
+Admin user creation auto-assigns to the root organization: org_admin or system_admin.
+
+Franchise user: must select an existing franchisee; if none exist and caller has permission, show inline “Create Franchisee” and then continue.
+
+School user: must select a school and one of: principal / school_admin / teacher. Enforce unique principal & school_admin per school with DB constraints and real-time validation.
+
+Parent user: can link to multiple students (multi-select). Allow inline Create Student if needed (with school association).
+
+After any user is created, send invite email (magic link). On login, show agreement modal(s) for required roles/scopes.
+
+Access control (RBAC + ABAC):
+
+Users can only see data within their entity lineage (e.g., teacher → classes in their school; franchise_admin → all schools under franchise).
+
+Parents can only see their linked students.
+
+Add middleware to compute scopes from memberships and entity tree on each request.
+
+2) Data Model (Prisma schema)
+
+Create these tables with indexes & constraints:
+
+User { id, name, email (unique), phone?, status: enum(INVITED, PENDING, ACTIVE, SUSPENDED, ARCHIVED), mfaEnabled, createdAt, updatedAt }
+
+Entity { id, type: enum(ORGANIZATION, FRANCHISEE, SCHOOL, STUDENT), name, parentId? (FK self), status: enum(DRAFT,ACTIVE,SUSPENDED,ARCHIVED), createdAt, updatedAt }
+
+Membership { id, userId FK→User, entityId FK→Entity, role: enum(all roles above), isPrimary: bool, validFrom?, validTo? }
+
+Unique constraints to enforce: (entityId, role='PRINCIPAL') unique; (entityId, role='SCHOOL_ADMIN') unique
+
+Indexes on (userId), (entityId), (role)
+
+ParentStudentLink { id, parentUserId FK→User, studentEntityId FK→Entity(type=STUDENT), relationship enum(MOTHER,FATHER,GUARDIAN,OTHER), custodyFlags JSON, createdAt }
+
+Unique optional constraint to prevent exact duplicate pairs (parentUserId, studentEntityId)
+
+Agreement { id, code (e.g., 'TOS_PARENT','TOS_STAFF'), version, title, bodyMd, effectiveAt, requiredRoles JSON (array of role strings) }
+
+Unique (code, version)
+
+AgreementAcceptance { id, userId FK→User, agreementId FK→Agreement, version, acceptedAt, ip, userAgent }
+
+AuditLog { id, actorUserId?, action, entityId?, targetId?, targetType?, metadata JSON, occurredAt }
+
+Optional now but scaffold for later:
+
+Class, TeacherClass, StudentClass to limit teacher views to their classes.
+
+Create seed data:
+
+Root org entity: “Smile Stars India”
+
+One franchisee: “HappySmiles Franchise – Hyderabad”
+
+One school: “Sunrise Public School”
+
+Sample students (2–3)
+
+Create:
+
+system_admin user
+
+org_admin user
+
+franchise_admin under the franchisee
+
+principal, school_admin, and two teacher users under the school
+
+one parent user linked to two students (many-to-many)
+
+3) Backend API (Express + TypeScript)
+
+Implement routes with request validation (zod) and auth middleware:
+
+Auth
+
+POST /auth/invite { email, name, targetEntityId, role } → creates User (status=INVITED), Membership, sends magic link
+
+POST /auth/magic-link/request { email } → sends link if known
+
+POST /auth/magic-link/consume { token } → issues JWT; if first login or new applicable agreements exist, return requiresAgreements: true
+
+POST /auth/accept-agreements { agreementIds[] } → records acceptances
+
+Entities
+
+POST /entities { type, name, parentId? } (permission-gated)
+
+GET /entities/:id (with lineage)
+
+GET /entities/:id/children?type=...
+
+Guard deletes with business rules (no orphaning)
+
+Users & Memberships
+
+POST /users { name, email, phone? } (creates user only)
+
+POST /memberships { userId, entityId, role, isPrimary? } (enforce principal/school_admin uniqueness)
+
+GET /users/:id
+
+GET /entities/:id/members (filter by role)
+
+PATCH /memberships/:id (role changes, end-date, etc.)
+
+Franchise user flow: if no franchisee exists, include createFranchisee: true, franchiseeName to create then assign.
+
+Parents & Students
+
+POST /students { name, schoolId, … }
+
+POST /parents/invite { name, email, linkStudentIds[] | createStudent?: { name, schoolId } }
+
+POST /parent-student-links { parentUserId, studentEntityId, relationship, custodyFlags? }
+
+GET /parents/:userId/students
+
+GET /students/:studentId/parents
+
+Agreements
+
+GET /agreements/applicable → returns list by user’s roles/scopes
+
+POST /agreements (admin) to create new version
+
+POST /agreements/:id/publish
+
+Audit
+
+Middleware logs actor, route, entity scope, and metadata to AuditLog.
+
+Access Control Middleware
+
+Decode JWT → load memberships → compute scopes (entity IDs reachable via lineage).
+
+Deny if action tries to access out-of-scope entity/student.
+
+Helper: requireRole({ anyOf: ['SYSTEM_ADMIN','ORG_ADMIN', ...], scope: 'entityId' }).
+
+4) Frontend (React + Tailwind)
+
+Pages & components:
+
+Auth
+
+Invite acceptance + Magic-link set-password screen
+
+Login (email → magic link) + optional OTP
+
+Agreement modal page: show all required agreements (markdown), “Accept All” button (persist via API)
+
+Dashboards
+
+Admin (org_admin/system_admin): manage franchisees & global reports
+
+Franchise Admin: manage schools and franchise staff; view franchise members
+
+School Admin/Principal: manage teachers, classes, students; enforce uniqueness (principal/admin)
+
+Teacher: class roster & student list (read/write limited)
+
+Parent: linked students, reports, consents
+
+User Creation Flows
+
+Franchise user create: select franchisee (dropdown). If none, show inline “Create Franchisee” (modal).
+
+School user create: select school + role (principal/school_admin/teacher). Real-time checks against unique constraints; show clear errors.
+
+Parent user create: select/link multiple students (search by school & name). Inline “Create Student”.
+
+After creation, show “Invite sent to <email>” with re-send option.
+
+Reusable UI
+
+Entity picker with hierarchy breadcrumbs
+
+Role badge component
+
+Agreement viewer (renders MD)
+
+Membership list & editor
+
+5) Security, Validation, and DX
+
+Zod schemas for every request; return typed errors.
+
+Rate-limit auth endpoints.
+
+CSRF not required for pure API + JWT SPA, but set SameSite=Lax if cookies used.
+
+Environment variables: SMTP creds, JWT secret, magic-link base URL, DB URL.
+
+Seed script creates sample data and prints dev magic links to console for quick testing.
+
+6) Developer Experience
+
+Add README.md with:
+
+setup (env vars, npm i, npm run db:migrate, npm run db:seed, npm run dev)
+
+sample credentials / quickstart
+
+role matrix and API list
+
+Unit tests for: principal/admin uniqueness, scoped access checks, agreement requirement on first login.
+
+Include Postman/Insomnia collection JSON.
+
+7) Nice-to-have (if time permits)
+
+Background job worker (BullMQ + Redis) for email sending/retries
+
+Audit log viewer (admin)
+
+Feature flags to toggle OTP/MFA
+
+Class entities & mapping (TeacherClass, StudentClass)
+
+Deliverables:
+
+Monorepo with apps/server and apps/web
+
+Prisma schema with migrations
+
+Complete auth/invite/agreement flows end-to-end
+
+UI screens for all creation flows with validations
+
+Seeded sample data and dev magic links printed to console
+
+Build it now.
