@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  password: text("password"), // Optional for magic-link users, required after first login
   phone: text("phone"),
   status: userStatusEnum("status").notNull().default("INVITED"),
   mfaEnabled: boolean("mfa_enabled").notNull().default(false),
