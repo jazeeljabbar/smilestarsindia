@@ -203,7 +203,7 @@ export function Dashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {(user?.role === 'dentist' || user?.role === 'admin') && (
+              {user?.role === 'dentist' && (
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
                   onClick={() => setShowScreeningForm(true)}
@@ -214,13 +214,22 @@ export function Dashboard() {
               )}
               
               {user?.role === 'admin' && (
-                <Button 
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
-                  onClick={() => setShowFranchiseeDialog(true)}
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Create Franchisee
-                </Button>
+                <>
+                  <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                    onClick={() => setLocation('/users')}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Create Users
+                  </Button>
+                  <Button 
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
+                    onClick={() => setShowFranchiseeDialog(true)}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Create Franchisee
+                  </Button>
+                </>
               )}
               
               {(user?.role === 'admin' || user?.role === 'franchisee') && (
