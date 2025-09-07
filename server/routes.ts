@@ -1748,18 +1748,32 @@ router.post('/reports/:id/send', authenticateToken, requireRole(['admin']), asyn
 // Dashboard statistics
 router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('=== DASHBOARD STATS DEBUG ===');
     const schools = await storage.getAllSchools();
+    console.log('Schools fetched:', schools.length, schools);
+    
     const camps = await storage.getAllCamps();
+    console.log('Camps fetched:', camps.length, camps);
+    
     const students = await storage.getAllStudents();
+    console.log('Students fetched:', students.length, students);
+    
     const screenings = await storage.getAllScreenings();
+    console.log('Screenings fetched:', screenings.length, screenings);
+    
     const reports = await storage.getAllReports();
+    console.log('Reports fetched:', reports.length, reports);
+    
     const franchises = await storage.getAllFranchises();
+    console.log('Franchises fetched:', franchises.length, franchises);
+    
     const users = await storage.getAllUsers();
+    console.log('Users fetched:', users.length, users);
 
     const activeCamps = camps.filter(c => c.status === 'active');
     const completedScreenings = screenings.filter(s => s.isCompleted);
 
-    res.json({
+    const statsData = {
       totalSchools: schools.length,
       totalCamps: camps.length,
       activeCamps: activeCamps.length,
@@ -1767,7 +1781,10 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
       reportsGenerated: reports.length,
       totalFranchises: franchises.length,
       totalUsers: users.length
-    });
+    };
+    
+    console.log('Final stats being sent:', statsData);
+    res.json(statsData);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch dashboard stats' });
   }
