@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 
 // Generate random token for magic links
 function generateToken(): string {
@@ -10,6 +11,12 @@ function generateToken(): string {
 function generateMagicLink(token: string): string {
   const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
   return `${baseUrl}/auth/magic-link?token=${token}`;
+}
+
+// Hash password for existing users
+async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
 }
 
 export async function seedDatabase() {
@@ -127,11 +134,17 @@ export async function seedDatabase() {
 
     // 5. Create Users and Memberships
 
+    // Hash default password for all users
+    console.log('Hashing default password...');
+    const defaultPassword = await hashPassword('12345');
+    console.log('✅ Default password ready');
+
     // System Admin User
     console.log('Creating system admin user...');
     const systemAdminUser = await storage.createUser({
       name: 'System Administrator',
       email: 'admin@smilestars.com',
+      password: defaultPassword,
       phone: '+91-9000000001',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -150,6 +163,7 @@ export async function seedDatabase() {
     const orgAdminUser = await storage.createUser({
       name: 'Organization Admin',
       email: 'orgadmin@smilestars.com',
+      password: defaultPassword,
       phone: '+91-9000000002',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -168,6 +182,7 @@ export async function seedDatabase() {
     const franchiseAdminUser = await storage.createUser({
       name: 'Rajesh Kumar',
       email: 'rajesh@happysmiles.com',
+      password: defaultPassword,
       phone: '+91-9876543210',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -186,6 +201,7 @@ export async function seedDatabase() {
     const principalUser = await storage.createUser({
       name: 'Dr. Priya Sharma',
       email: 'principal@sunriseschool.edu',
+      password: defaultPassword,
       phone: '+91-9123456789',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -204,6 +220,7 @@ export async function seedDatabase() {
     const schoolAdminUser = await storage.createUser({
       name: 'Mrs. Anita Verma',
       email: 'admin@sunriseschool.edu',
+      password: defaultPassword,
       phone: '+91-9123456788',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -222,6 +239,7 @@ export async function seedDatabase() {
     const teacher1User = await storage.createUser({
       name: 'Mr. Amit Kumar',
       email: 'amit.kumar@sunriseschool.edu',
+      password: defaultPassword,
       phone: '+91-9123456787',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -238,6 +256,7 @@ export async function seedDatabase() {
     const teacher2User = await storage.createUser({
       name: 'Ms. Deepika Nair',
       email: 'deepika.nair@sunriseschool.edu',
+      password: defaultPassword,
       phone: '+91-9123456786',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -256,6 +275,7 @@ export async function seedDatabase() {
     const dentistUser = await storage.createUser({
       name: 'Dr. Ramesh Gupta',
       email: 'dentist@smilestars.com',
+      password: defaultPassword,
       phone: '+91-9876543213',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -274,6 +294,7 @@ export async function seedDatabase() {
     const parentUser = await storage.createUser({
       name: 'Suresh Patel',
       email: 'suresh.patel@email.com',
+      password: defaultPassword,
       phone: '+91-9876543211',
       status: 'ACTIVE',
       mfaEnabled: false
@@ -317,6 +338,7 @@ export async function seedDatabase() {
     const parent2User = await storage.createUser({
       name: 'Vikram Singh',
       email: 'vikram.singh@email.com',
+      password: defaultPassword,
       phone: '+91-9876543212',
       status: 'ACTIVE',
       mfaEnabled: false
