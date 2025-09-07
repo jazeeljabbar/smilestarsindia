@@ -1,77 +1,90 @@
 import {
-  User, InsertUser, Franchise, InsertFranchise, School, InsertSchool, Camp, InsertCamp,
-  CampApproval, InsertCampApproval, Student, InsertStudent, Screening, InsertScreening, Report, InsertReport,
-  users, franchises, schools, camps, campApprovals, students, screenings, reports
+  User, InsertUser, Entity, InsertEntity, Membership, InsertMembership,
+  ParentStudentLink, InsertParentStudentLink, Agreement, InsertAgreement,
+  AgreementAcceptance, InsertAgreementAcceptance, AuditLog, InsertAuditLog,
+  MagicToken, InsertMagicToken, Camp, InsertCamp, Screening, InsertScreening,
+  Report, InsertReport,
+  users, entities, memberships, parentStudentLinks, agreements, agreementAcceptances,
+  auditLogs, magicTokens, camps, screenings, reports
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, desc, asc, inArray, isNull, or } from "drizzle-orm";
 
 export interface IStorage {
   // Users
   createUser(user: InsertUser): Promise<User>;
   getUserByEmail(email: string): Promise<User | null>;
-  getUserByUsername(username: string): Promise<User | null>;
   getUserById(id: number): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
 
-  // Franchises
-  createFranchise(franchise: InsertFranchise): Promise<Franchise>;
-  getAllFranchises(): Promise<Franchise[]>;
-  getFranchiseById(id: number): Promise<Franchise | null>;
-  getFranchisesByUser(userId: number): Promise<Franchise[]>;
-  updateFranchise(id: number, updates: Partial<InsertFranchise>): Promise<Franchise>;
+  // Entities
+  createEntity(entity: InsertEntity): Promise<Entity>;
+  getEntityById(id: number): Promise<Entity | null>;
+  getEntitiesByType(type: string): Promise<Entity[]>;
+  getEntitiesByParent(parentId: number): Promise<Entity[]>;
+  getAllEntities(): Promise<Entity[]>;
+  updateEntity(id: number, updates: Partial<InsertEntity>): Promise<Entity>;
+  deleteEntity(id: number): Promise<void>;
 
-  // Schools
-  createSchool(school: InsertSchool): Promise<School>;
-  getAllSchools(): Promise<School[]>;
-  getSchoolById(id: number): Promise<School | null>;
-  getSchoolsByFranchise(franchiseId: number): Promise<School[]>;
-  getSchoolsByUser(userId: number): Promise<School[]>;
-  getSchoolsByAdmin(adminUserId: number): Promise<School[]>;
-  updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School>;
-  deleteSchool(id: number): Promise<void>;
+  // Memberships
+  createMembership(membership: InsertMembership): Promise<Membership>;
+  getMembershipsByUser(userId: number): Promise<Membership[]>;
+  getMembershipsByEntity(entityId: number): Promise<Membership[]>;
+  getMembershipsByRole(role: string): Promise<Membership[]>;
+  updateMembership(id: number, updates: Partial<InsertMembership>): Promise<Membership>;
+  deleteMembership(id: number): Promise<void>;
+
+  // Parent-Student Links
+  createParentStudentLink(link: InsertParentStudentLink): Promise<ParentStudentLink>;
+  getParentStudentLinksByParent(parentUserId: number): Promise<ParentStudentLink[]>;
+  getParentStudentLinksByStudent(studentEntityId: number): Promise<ParentStudentLink[]>;
+  deleteParentStudentLink(id: number): Promise<void>;
+
+  // Agreements
+  createAgreement(agreement: InsertAgreement): Promise<Agreement>;
+  getAgreementsByRole(roles: string[]): Promise<Agreement[]>;
+  getAgreementById(id: number): Promise<Agreement | null>;
+  getAllAgreements(): Promise<Agreement[]>;
+
+  // Agreement Acceptances
+  createAgreementAcceptance(acceptance: InsertAgreementAcceptance): Promise<AgreementAcceptance>;
+  getAcceptancesByUser(userId: number): Promise<AgreementAcceptance[]>;
+  hasUserAcceptedAgreement(userId: number, agreementId: number): Promise<boolean>;
+
+  // Magic Tokens
+  createMagicToken(token: InsertMagicToken): Promise<MagicToken>;
+  getMagicTokenByToken(token: string): Promise<MagicToken | null>;
+  markMagicTokenUsed(token: string): Promise<void>;
+  cleanupExpiredTokens(): Promise<void>;
+
+  // Audit Logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogsByUser(userId: number): Promise<AuditLog[]>;
+  getAuditLogsByEntity(entityId: number): Promise<AuditLog[]>;
 
   // Camps
   createCamp(camp: InsertCamp): Promise<Camp>;
   getAllCamps(): Promise<Camp[]>;
   getCampById(id: number): Promise<Camp | null>;
-  getCampsBySchool(schoolId: number): Promise<Camp[]>;
-  getCampsByDentist(dentistId: number): Promise<Camp[]>;
-  getCampsByFranchise(franchiseId: number): Promise<Camp[]>;
+  getCampsBySchoolEntity(schoolEntityId: number): Promise<Camp[]>;
+  getCampsByDentist(dentistUserId: number): Promise<Camp[]>;
   updateCamp(id: number, updates: Partial<InsertCamp>): Promise<Camp>;
-
-  // Camp Approvals
-  createCampApproval(approval: InsertCampApproval): Promise<CampApproval>;
-  getAllCampApprovals(): Promise<CampApproval[]>;
-  getCampApprovalById(id: number): Promise<CampApproval | null>;
-  getCampApprovalByCamp(campId: number): Promise<CampApproval | null>;
-  updateCampApproval(id: number, updates: Partial<InsertCampApproval>): Promise<CampApproval>;
-
-  // Students
-  createStudent(student: InsertStudent): Promise<Student>;
-  getAllStudents(): Promise<Student[]>;
-  getStudentById(id: number): Promise<Student | null>;
-  getStudentByEmail(email: string): Promise<Student | null>;
-  getStudentsByCamp(campId: number): Promise<Student[]>;
-  getStudentsBySchool(schoolId: number): Promise<Student[]>;
-  updateStudent(id: number, updates: Partial<InsertStudent>): Promise<Student>;
 
   // Screenings
   createScreening(screening: InsertScreening): Promise<Screening>;
   getAllScreenings(): Promise<Screening[]>;
   getScreeningById(id: number): Promise<Screening | null>;
-  getScreeningByStudent(studentId: number): Promise<Screening | null>;
+  getScreeningsByStudentEntity(studentEntityId: number): Promise<Screening[]>;
   getScreeningsByCamp(campId: number): Promise<Screening[]>;
-  getScreeningsByDentist(dentistId: number): Promise<Screening[]>;
+  getScreeningsByDentist(dentistUserId: number): Promise<Screening[]>;
   updateScreening(id: number, updates: Partial<InsertScreening>): Promise<Screening>;
 
   // Reports
   createReport(report: InsertReport): Promise<Report>;
   getAllReports(): Promise<Report[]>;
   getReportById(id: number): Promise<Report | null>;
-  getReportByScreening(screeningId: number): Promise<Report | null>;
-  getReportsByStudent(studentId: number): Promise<Report[]>;
+  getReportsByStudentEntity(studentEntityId: number): Promise<Report[]>;
   updateReport(id: number, updates: Partial<InsertReport>): Promise<Report>;
 }
 
@@ -91,120 +104,219 @@ export class DatabaseStorage implements IStorage {
     return user || null;
   }
 
-  async getUserByUsername(username: string): Promise<User | null> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || null;
-  }
-
   async getUserById(id: number): Promise<User | null> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || null;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    return await db.select().from(users).orderBy(asc(users.name));
   }
 
   async updateUser(id: number, updates: Partial<InsertUser>): Promise<User> {
     const [user] = await db
       .update(users)
-      .set(updates)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user;
   }
 
-  // Franchises
-  async createFranchise(insertFranchise: InsertFranchise): Promise<Franchise> {
-    const [franchise] = await db
-      .insert(franchises)
-      .values(insertFranchise)
+  // Entities
+  async createEntity(insertEntity: InsertEntity): Promise<Entity> {
+    const [entity] = await db
+      .insert(entities)
+      .values([insertEntity])
       .returning();
-    return franchise;
+    return entity;
   }
 
-  async getAllFranchises(): Promise<Franchise[]> {
-    return await db.select().from(franchises);
+  async getEntityById(id: number): Promise<Entity | null> {
+    const [entity] = await db.select().from(entities).where(eq(entities.id, id));
+    return entity || null;
   }
 
-  async getFranchiseById(id: number): Promise<Franchise | null> {
-    const [franchise] = await db.select().from(franchises).where(eq(franchises.id, id));
-    return franchise || null;
+  async getEntitiesByType(type: string): Promise<Entity[]> {
+    return await db.select().from(entities).where(eq(entities.type, type as any));
   }
 
-  async getFranchisesByUser(userId: number): Promise<Franchise[]> {
-    return await db.select().from(franchises).where(eq(franchises.franchiseeUserId, userId));
+  async getEntitiesByParent(parentId: number): Promise<Entity[]> {
+    return await db.select().from(entities).where(eq(entities.parentId, parentId));
   }
 
-  async updateFranchise(id: number, updates: Partial<InsertFranchise>): Promise<Franchise> {
-    const [franchise] = await db
-      .update(franchises)
+  async getAllEntities(): Promise<Entity[]> {
+    return await db.select().from(entities).orderBy(asc(entities.name));
+  }
+
+  async updateEntity(id: number, updates: Partial<InsertEntity>): Promise<Entity> {
+    const [entity] = await db
+      .update(entities)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(entities.id, id))
+      .returning();
+    return entity;
+  }
+
+  async deleteEntity(id: number): Promise<void> {
+    await db.delete(entities).where(eq(entities.id, id));
+  }
+
+  // Memberships
+  async createMembership(insertMembership: InsertMembership): Promise<Membership> {
+    const [membership] = await db
+      .insert(memberships)
+      .values([insertMembership])
+      .returning();
+    return membership;
+  }
+
+  async getMembershipsByUser(userId: number): Promise<Membership[]> {
+    return await db.select().from(memberships).where(eq(memberships.userId, userId));
+  }
+
+  async getMembershipsByEntity(entityId: number): Promise<Membership[]> {
+    return await db.select().from(memberships).where(eq(memberships.entityId, entityId));
+  }
+
+  async getMembershipsByRole(role: string): Promise<Membership[]> {
+    return await db.select().from(memberships).where(eq(memberships.role, role as any));
+  }
+
+  async updateMembership(id: number, updates: Partial<InsertMembership>): Promise<Membership> {
+    const [membership] = await db
+      .update(memberships)
       .set(updates)
-      .where(eq(franchises.id, id))
+      .where(eq(memberships.id, id))
       .returning();
-    return franchise;
+    return membership;
   }
 
-  // Schools
-  async createSchool(insertSchool: InsertSchool): Promise<School> {
-    const [school] = await db
-      .insert(schools)
-      .values(insertSchool)
+  async deleteMembership(id: number): Promise<void> {
+    await db.delete(memberships).where(eq(memberships.id, id));
+  }
+
+  // Parent-Student Links
+  async createParentStudentLink(insertLink: InsertParentStudentLink): Promise<ParentStudentLink> {
+    const [link] = await db
+      .insert(parentStudentLinks)
+      .values([insertLink])
       .returning();
-    return school;
+    return link;
   }
 
-  async getAllSchools(): Promise<School[]> {
-    return await db.select().from(schools);
+  async getParentStudentLinksByParent(parentUserId: number): Promise<ParentStudentLink[]> {
+    return await db.select().from(parentStudentLinks).where(eq(parentStudentLinks.parentUserId, parentUserId));
   }
 
-  async getSchoolById(id: number): Promise<School | null> {
-    const [school] = await db.select().from(schools).where(eq(schools.id, id));
-    return school || null;
+  async getParentStudentLinksByStudent(studentEntityId: number): Promise<ParentStudentLink[]> {
+    return await db.select().from(parentStudentLinks).where(eq(parentStudentLinks.studentEntityId, studentEntityId));
   }
 
-  async getSchoolsByFranchise(franchiseId: number): Promise<School[]> {
-    return await db.select().from(schools).where(eq(schools.franchiseId, franchiseId));
+  async deleteParentStudentLink(id: number): Promise<void> {
+    await db.delete(parentStudentLinks).where(eq(parentStudentLinks.id, id));
   }
 
-  async getSchoolsByUser(userId: number): Promise<School[]> {
-    console.log('Storage: getSchoolsByUser called with userId:', userId);
-    const result = await db.select().from(schools).where(eq(schools.adminUserId, userId));
-    console.log('Storage: Found schools:', result.length, result);
-    return result;
-  }
-
-  async getSchoolsByAdmin(adminUserId: number): Promise<School[]> {
-    return await db.select().from(schools).where(eq(schools.adminUserId, adminUserId));
-  }
-
-  async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School> {
-    const [school] = await db
-      .update(schools)
-      .set(updates)
-      .where(eq(schools.id, id))
+  // Agreements
+  async createAgreement(insertAgreement: InsertAgreement): Promise<Agreement> {
+    const [agreement] = await db
+      .insert(agreements)
+      .values([insertAgreement])
       .returning();
-    return school;
+    return agreement;
   }
 
-  async deleteSchool(id: number): Promise<void> {
-    // Check for dependencies before deletion
-    const associatedCamps = await this.getCampsBySchool(id);
-    const associatedStudents = await this.getStudentsBySchool(id);
-    
-    const dependencies = [];
-    if (associatedCamps.length > 0) {
-      dependencies.push(`${associatedCamps.length} camp(s)`);
-    }
-    if (associatedStudents.length > 0) {
-      dependencies.push(`${associatedStudents.length} student(s)`);
-    }
-    
-    if (dependencies.length > 0) {
-      throw new Error(`Cannot delete school. It has associated ${dependencies.join(' and ')}. Please remove these dependencies first.`);
-    }
-    
-    await db.delete(schools).where(eq(schools.id, id));
+  async getAgreementsByRole(roles: string[]): Promise<Agreement[]> {
+    // Get agreements where requiredRoles array contains any of the provided roles
+    const allAgreements = await db.select().from(agreements);
+    return allAgreements.filter(agreement => {
+      const requiredRoles = agreement.requiredRoles as string[];
+      return requiredRoles.some(role => roles.includes(role));
+    });
+  }
+
+  async getAgreementById(id: number): Promise<Agreement | null> {
+    const [agreement] = await db.select().from(agreements).where(eq(agreements.id, id));
+    return agreement || null;
+  }
+
+  async getAllAgreements(): Promise<Agreement[]> {
+    return await db.select().from(agreements).orderBy(desc(agreements.effectiveAt));
+  }
+
+  // Agreement Acceptances
+  async createAgreementAcceptance(insertAcceptance: InsertAgreementAcceptance): Promise<AgreementAcceptance> {
+    const [acceptance] = await db
+      .insert(agreementAcceptances)
+      .values([insertAcceptance])
+      .returning();
+    return acceptance;
+  }
+
+  async getAcceptancesByUser(userId: number): Promise<AgreementAcceptance[]> {
+    return await db.select().from(agreementAcceptances).where(eq(agreementAcceptances.userId, userId));
+  }
+
+  async hasUserAcceptedAgreement(userId: number, agreementId: number): Promise<boolean> {
+    const [acceptance] = await db.select()
+      .from(agreementAcceptances)
+      .where(and(
+        eq(agreementAcceptances.userId, userId),
+        eq(agreementAcceptances.agreementId, agreementId)
+      ));
+    return !!acceptance;
+  }
+
+  // Magic Tokens
+  async createMagicToken(insertToken: InsertMagicToken): Promise<MagicToken> {
+    const [token] = await db
+      .insert(magicTokens)
+      .values([insertToken])
+      .returning();
+    return token;
+  }
+
+  async getMagicTokenByToken(token: string): Promise<MagicToken | null> {
+    const [magicToken] = await db.select()
+      .from(magicTokens)
+      .where(and(
+        eq(magicTokens.token, token),
+        isNull(magicTokens.usedAt)
+      ));
+    return magicToken || null;
+  }
+
+  async markMagicTokenUsed(token: string): Promise<void> {
+    await db
+      .update(magicTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(magicTokens.token, token));
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    await db
+      .delete(magicTokens)
+      .where(and(
+        isNull(magicTokens.usedAt),
+        // Delete tokens older than 48 hours
+        eq(magicTokens.expiresAt, new Date(Date.now() - 48 * 60 * 60 * 1000))
+      ));
+  }
+
+  // Audit Logs
+  async createAuditLog(insertLog: InsertAuditLog): Promise<AuditLog> {
+    const [log] = await db
+      .insert(auditLogs)
+      .values([insertLog])
+      .returning();
+    return log;
+  }
+
+  async getAuditLogsByUser(userId: number): Promise<AuditLog[]> {
+    return await db.select().from(auditLogs).where(eq(auditLogs.actorUserId, userId)).orderBy(desc(auditLogs.occurredAt));
+  }
+
+  async getAuditLogsByEntity(entityId: number): Promise<AuditLog[]> {
+    return await db.select().from(auditLogs).where(eq(auditLogs.entityId, entityId)).orderBy(desc(auditLogs.occurredAt));
   }
 
   // Camps
@@ -217,7 +329,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCamps(): Promise<Camp[]> {
-    return await db.select().from(camps);
+    return await db.select().from(camps).orderBy(desc(camps.startDate));
   }
 
   async getCampById(id: number): Promise<Camp | null> {
@@ -225,22 +337,12 @@ export class DatabaseStorage implements IStorage {
     return camp || null;
   }
 
-  async getCampsBySchool(schoolId: number): Promise<Camp[]> {
-    return await db.select().from(camps).where(eq(camps.schoolId, schoolId));
+  async getCampsBySchoolEntity(schoolEntityId: number): Promise<Camp[]> {
+    return await db.select().from(camps).where(eq(camps.schoolEntityId, schoolEntityId));
   }
 
-  async getCampsByDentist(dentistId: number): Promise<Camp[]> {
-    return await db.select().from(camps).where(eq(camps.assignedDentistId, dentistId));
-  }
-
-  async getCampsByFranchise(franchiseId: number): Promise<Camp[]> {
-    const franchiseSchools = await this.getSchoolsByFranchise(franchiseId);
-    const schoolIds = franchiseSchools.map(s => s.id);
-    if (schoolIds.length === 0) return [];
-    
-    // This would need a more complex query with IN clause
-    const allCamps = await db.select().from(camps);
-    return allCamps.filter(c => schoolIds.includes(c.schoolId));
+  async getCampsByDentist(dentistUserId: number): Promise<Camp[]> {
+    return await db.select().from(camps).where(eq(camps.assignedDentistId, dentistUserId));
   }
 
   async updateCamp(id: number, updates: Partial<InsertCamp>): Promise<Camp> {
@@ -252,89 +354,17 @@ export class DatabaseStorage implements IStorage {
     return camp;
   }
 
-  // Camp Approvals
-  async createCampApproval(insertApproval: InsertCampApproval): Promise<CampApproval> {
-    const [approval] = await db
-      .insert(campApprovals)
-      .values(insertApproval)
-      .returning();
-    return approval;
-  }
-
-  async getAllCampApprovals(): Promise<CampApproval[]> {
-    return await db.select().from(campApprovals);
-  }
-
-  async getCampApprovalById(id: number): Promise<CampApproval | null> {
-    const [approval] = await db.select().from(campApprovals).where(eq(campApprovals.id, id));
-    return approval || null;
-  }
-
-  async getCampApprovalByCamp(campId: number): Promise<CampApproval | null> {
-    const [approval] = await db.select().from(campApprovals).where(eq(campApprovals.campId, campId));
-    return approval || null;
-  }
-
-  async updateCampApproval(id: number, updates: Partial<InsertCampApproval>): Promise<CampApproval> {
-    const [approval] = await db
-      .update(campApprovals)
-      .set(updates)
-      .where(eq(campApprovals.id, id))
-      .returning();
-    return approval;
-  }
-
-  // Students
-  async createStudent(insertStudent: InsertStudent): Promise<Student> {
-    const [student] = await db
-      .insert(students)
-      .values(insertStudent)
-      .returning();
-    return student;
-  }
-
-  async getAllStudents(): Promise<Student[]> {
-    return await db.select().from(students);
-  }
-
-  async getStudentById(id: number): Promise<Student | null> {
-    const [student] = await db.select().from(students).where(eq(students.id, id));
-    return student || null;
-  }
-
-  async getStudentByEmail(email: string): Promise<Student | null> {
-    const [student] = await db.select().from(students).where(eq(students.email, email));
-    return student || null;
-  }
-
-  async getStudentsByCamp(campId: number): Promise<Student[]> {
-    return await db.select().from(students).where(eq(students.campId, campId));
-  }
-
-  async getStudentsBySchool(schoolId: number): Promise<Student[]> {
-    return await db.select().from(students).where(eq(students.schoolId, schoolId));
-  }
-
-  async updateStudent(id: number, updates: Partial<InsertStudent>): Promise<Student> {
-    const [student] = await db
-      .update(students)
-      .set(updates)
-      .where(eq(students.id, id))
-      .returning();
-    return student;
-  }
-
   // Screenings
   async createScreening(insertScreening: InsertScreening): Promise<Screening> {
     const [screening] = await db
       .insert(screenings)
-      .values(insertScreening)
+      .values([insertScreening])
       .returning();
     return screening;
   }
 
   async getAllScreenings(): Promise<Screening[]> {
-    return await db.select().from(screenings);
+    return await db.select().from(screenings).orderBy(desc(screenings.createdAt));
   }
 
   async getScreeningById(id: number): Promise<Screening | null> {
@@ -342,17 +372,16 @@ export class DatabaseStorage implements IStorage {
     return screening || null;
   }
 
-  async getScreeningByStudent(studentId: number): Promise<Screening | null> {
-    const [screening] = await db.select().from(screenings).where(eq(screenings.studentId, studentId));
-    return screening || null;
+  async getScreeningsByStudentEntity(studentEntityId: number): Promise<Screening[]> {
+    return await db.select().from(screenings).where(eq(screenings.studentEntityId, studentEntityId));
   }
 
   async getScreeningsByCamp(campId: number): Promise<Screening[]> {
     return await db.select().from(screenings).where(eq(screenings.campId, campId));
   }
 
-  async getScreeningsByDentist(dentistId: number): Promise<Screening[]> {
-    return await db.select().from(screenings).where(eq(screenings.dentistId, dentistId));
+  async getScreeningsByDentist(dentistUserId: number): Promise<Screening[]> {
+    return await db.select().from(screenings).where(eq(screenings.dentistUserId, dentistUserId));
   }
 
   async updateScreening(id: number, updates: Partial<InsertScreening>): Promise<Screening> {
@@ -374,7 +403,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllReports(): Promise<Report[]> {
-    return await db.select().from(reports);
+    return await db.select().from(reports).orderBy(desc(reports.createdAt));
   }
 
   async getReportById(id: number): Promise<Report | null> {
@@ -382,13 +411,8 @@ export class DatabaseStorage implements IStorage {
     return report || null;
   }
 
-  async getReportByScreening(screeningId: number): Promise<Report | null> {
-    const [report] = await db.select().from(reports).where(eq(reports.screeningId, screeningId));
-    return report || null;
-  }
-
-  async getReportsByStudent(studentId: number): Promise<Report[]> {
-    return await db.select().from(reports).where(eq(reports.studentId, studentId));
+  async getReportsByStudentEntity(studentEntityId: number): Promise<Report[]> {
+    return await db.select().from(reports).where(eq(reports.studentEntityId, studentEntityId));
   }
 
   async updateReport(id: number, updates: Partial<InsertReport>): Promise<Report> {

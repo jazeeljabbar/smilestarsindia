@@ -5,9 +5,12 @@ import nodemailer from "nodemailer";
 import { MailService } from '@sendgrid/mail';
 import { storage } from "./storage";
 import { 
-  insertUserSchema, loginSchema, insertFranchiseSchema, insertSchoolSchema, insertCampSchema,
-  insertCampApprovalSchema, insertStudentSchema, insertScreeningSchema, insertReportSchema,
-  User
+  insertUserSchema, insertEntitySchema, insertMembershipSchema, insertParentStudentLinkSchema,
+  insertAgreementSchema, insertAgreementAcceptanceSchema, insertAuditLogSchema,
+  insertMagicTokenSchema, insertCampSchema, insertScreeningSchema, insertReportSchema,
+  magicLinkRequestSchema, magicLinkConsumeSchema, acceptAgreementsSchema,
+  createUserSchema, createMembershipSchema, inviteUserSchema,
+  User, Entity, Membership
 } from "@shared/schema";
 
 // Extend Express Request type to include user
