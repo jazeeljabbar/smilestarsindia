@@ -18,6 +18,7 @@ import { insertEntitySchema, type InsertEntity } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
+import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Schools() {
   const { user, token } = useAuth();
@@ -264,7 +265,7 @@ export function Schools() {
               <DialogTrigger asChild>
                 <Button 
                   className={hasAcceptedFranchisees 
-                    ? "bg-green-600 hover:bg-green-700" 
+                    ? colorSchemes.schools.primary
                     : "bg-gray-400 cursor-not-allowed"
                   }
                   disabled={!hasAcceptedFranchisees}

@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { type User, type InsertUser } from '@shared/schema';
+import { colorSchemes } from '@/lib/colorSchemes';
 
 const userFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -333,7 +334,7 @@ export function Users() {
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className={colorSchemes.users.primary}>
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>

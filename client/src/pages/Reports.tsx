@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
+import { colorSchemes } from '@/lib/colorSchemes';
 import jsPDF from 'jspdf';
 
 export function Reports() {
@@ -411,7 +412,7 @@ export function Reports() {
                           size="sm"
                           onClick={() => generateReport(student, student.screening)}
                           disabled={generateReportMutation.isPending}
-                          className="text-green-600 hover:text-green-700"
+                          className={colorSchemes.reports.text}
                         >
                           <FileText className="h-4 w-4" />
                         </Button>

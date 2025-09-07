@@ -15,6 +15,7 @@ import { insertEntitySchema, type InsertEntity } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
+import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Students() {
   const { user } = useAuth();
@@ -121,7 +122,7 @@ export function Students() {
           {(user?.role === 'admin' || user?.role === 'franchisee' || user?.role === 'school_admin') && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className={colorSchemes.students.primary}>
                   <Plus className="h-4 w-4 mr-2" />
                   Register Student
                 </Button>

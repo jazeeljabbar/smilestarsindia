@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
+import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Camps() {
   const { user } = useAuth();
@@ -155,7 +156,7 @@ export function Camps() {
         {(user?.role === 'admin' || user?.role === 'franchisee') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className={colorSchemes.camps.primary}>
                 <Plus className="h-4 w-4 mr-2" />
                 Schedule Camp
               </Button>
