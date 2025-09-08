@@ -1103,12 +1103,12 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
       return res.status(400).json({ error: 'Contact email and person name are required' });
     }
     
-    // Create franchisee entity in PENDING status
+    // Create franchisee entity in DRAFT status (will be ACTIVE after agreement acceptance)
     const franchiseeData = {
       ...entityData,
       type: 'FRANCHISEE' as const,
       parentId: 1, // Assume parent is Smile Stars India organization
-      status: 'PENDING', // Start in pending status
+      status: 'DRAFT', // Start in draft status, will be activated after agreement
       metadata
     };
     
@@ -1121,9 +1121,7 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
       // Create new user
       const userData = {
         email: contactEmail,
-        username: contactEmail.split('@')[0] + '_' + entity.id,
-        firstName: contactPerson.split(' ')[0] || contactPerson,
-        lastName: contactPerson.split(' ').slice(1).join(' ') || '',
+        name: contactPerson, // Use name field instead of firstName/lastName
         status: 'PENDING' as const,
         entityIds: [entity.id]
       };
