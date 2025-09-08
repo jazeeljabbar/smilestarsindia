@@ -68,8 +68,12 @@ export function Layout({ children }: LayoutProps) {
       if (item.name === 'Users' && !hasRole('SYSTEM_ADMIN')) {
         return false;
       }
+      // Franchisees page is only for System Admin and Org Admin (not for Franchise Admin)
+      if (item.name === 'Franchisees' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN'])) {
+        return false;
+      }
       // Other admin items for any admin role
-      if (item.name !== 'Users' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
+      if (item.name !== 'Users' && item.name !== 'Franchisees' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
         return false;
       }
     }
