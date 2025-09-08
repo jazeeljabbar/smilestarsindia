@@ -546,7 +546,29 @@ router.post('/auth/invite', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG
 router.get('/users', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const users = await storage.getAllUsers();
-    res.json(users);
+    
+    // Fetch memberships for each user to include roles
+    const usersWithMemberships = await Promise.all(
+      users.map(async (user) => {
+        try {
+          const memberships = await storage.getMembershipsByUser(user.id);
+          return {
+            ...user,
+            roles: memberships.map(m => m.role),
+            memberships: memberships
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch memberships for user ${user.id}:`, error);
+          return {
+            ...user,
+            roles: [],
+            memberships: []
+          };
+        }
+      })
+    );
+    
+    res.json(usersWithMemberships);
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to get users' });

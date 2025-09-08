@@ -79,7 +79,7 @@ export function Users() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all users
+  // Fetch all users - server now includes memberships
   const { data: users, isLoading } = useQuery({
     queryKey: ['/api/users'],
     queryFn: () => apiRequest('/users'),
@@ -87,20 +87,20 @@ export function Users() {
 
   // Fetch entities for dropdowns
   const { data: franchisees } = useQuery({
-    queryKey: ['/api/franchisees'],
-    queryFn: () => apiRequest('/franchisees'),
+    queryKey: ['/api/entities', 'FRANCHISEE'],
+    queryFn: () => apiRequest('/entities?type=FRANCHISEE'),
     enabled: selectedRoles.some(role => ['FRANCHISE_ADMIN', 'DENTIST', 'TECHNICIAN'].includes(role)),
   });
 
   const { data: schools } = useQuery({
-    queryKey: ['/api/schools'],
-    queryFn: () => apiRequest('/schools'),
+    queryKey: ['/api/entities', 'SCHOOL'],
+    queryFn: () => apiRequest('/entities?type=SCHOOL'),
     enabled: selectedRoles.some(role => ['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER'].includes(role)),
   });
 
   const { data: students } = useQuery({
-    queryKey: ['/api/students'],
-    queryFn: () => apiRequest('/students'),
+    queryKey: ['/api/entities', 'STUDENT'],
+    queryFn: () => apiRequest('/entities?type=STUDENT'),
     enabled: selectedRoles.includes('PARENT'),
   });
 
@@ -135,26 +135,34 @@ export function Users() {
     },
   });
 
-  // Create user mutation
+  // Create user invitation mutation
   const createUserMutation = useMutation({
-    mutationFn: (data: UserFormData) => 
-      apiRequest('/users', {
+    mutationFn: (data: UserFormData) => {
+      // Use invite system for user creation
+      const inviteData = {
+        email: data.email,
+        name: data.name,
+        targetEntityId: data.franchiseeId || data.schoolId || 1, // Default to organization
+        role: data.roles[0] // Use first role for primary membership
+      };
+      return apiRequest('/auth/invite', {
         method: 'POST',
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify(inviteData),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       setShowCreateDialog(false);
       createForm.reset();
       toast({
         title: 'Success',
-        description: 'User created successfully',
+        description: 'User invitation sent successfully',
       });
     },
     onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create user',
+        description: error.message || 'Failed to send invitation',
         variant: 'destructive',
       });
     },
@@ -231,20 +239,7 @@ export function Users() {
   });
 
   const onCreateSubmit = (data: UserFormData) => {
-    // Transform data to include entity associations
-    const userData = {
-      username: data.username,
-      email: data.email,
-      name: data.name,
-      password: data.password,
-      roles: data.roles,
-      entityAssociations: {
-        franchiseeId: data.franchiseeId,
-        schoolId: data.schoolId,
-        studentIds: data.studentIds,
-      }
-    };
-    createUserMutation.mutate(userData);
+    createUserMutation.mutate(data);
   };
 
   const onEditSubmit = (data: EditUserFormData) => {
@@ -255,10 +250,12 @@ export function Users() {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     editForm.reset({
-      username: user.email, // Using email as username since User doesn't have username
+      username: user.email, 
       email: user.email,
       name: user.name,
-      roles: (user as any).roles || ['PARENT'], // Type assertion for now
+      roles: (user as any).roles || [],
+      franchiseeId: (user as any).memberships?.find((m: any) => m.entityId && franchisees?.some((f: any) => f.id === m.entityId))?.entityId,
+      schoolId: (user as any).memberships?.find((m: any) => m.entityId && schools?.some((s: any) => s.id === m.entityId))?.entityId,
     });
   };
 
