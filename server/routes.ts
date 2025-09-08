@@ -244,14 +244,20 @@ router.post('/auth/magic-link/consume', async (req: Request, res: Response) => {
     const memberships = await storage.getMembershipsByUser(user.id);
     const roles = memberships.map(m => m.role);
     
-    // Check if user needs to accept agreements
-    const applicableAgreements = await storage.getAgreementsByRole(roles);
-    const userAcceptances = await storage.getAcceptancesByUser(user.id);
-    const acceptedAgreementIds = userAcceptances.map(a => a.agreementId);
+    // Check for pending agreements based on user status
+    let pendingAgreements = [];
+    let requiresAgreements = false;
     
-    const pendingAgreements = applicableAgreements.filter(
-      agreement => !acceptedAgreementIds.includes(agreement.id)
-    );
+    if (user.status === 'PENDING') {
+      // PENDING users must always accept agreements, regardless of previous acceptances
+      const applicableAgreements = await storage.getAgreementsByRole(roles);
+      pendingAgreements = applicableAgreements;
+      requiresAgreements = true;
+    } else if (user.status === 'ACTIVE') {
+      // ACTIVE users don't need to see agreements
+      requiresAgreements = false;
+    }
+    // Note: SUSPENDED users are already handled above with early return
 
     // Generate JWT
     const jwtToken = jwt.sign(
@@ -274,7 +280,7 @@ router.post('/auth/magic-link/consume', async (req: Request, res: Response) => {
         roles,
         status: user.status
       },
-      requiresAgreements: pendingAgreements.length > 0,
+      requiresAgreements: requiresAgreements,
       pendingAgreements: pendingAgreements.map(a => ({
         id: a.id,
         title: a.title,
@@ -358,13 +364,20 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     const roles = memberships.map(m => m.role);
     const entityIds = memberships.map(m => m.entityId);
 
-    // Check for pending agreements
-    const applicableAgreements = await storage.getAgreementsByRole(roles);
-    const userAcceptances = await storage.getAcceptancesByUser(user.id);
-    const acceptedAgreementIds = userAcceptances.map(a => a.agreementId);
-    const pendingAgreements = applicableAgreements.filter(
-      agreement => !acceptedAgreementIds.includes(agreement.id)
-    );
+    // Check for pending agreements based on user status
+    let pendingAgreements = [];
+    let requiresAgreements = false;
+    
+    if (user.status === 'PENDING') {
+      // PENDING users must always accept agreements, regardless of previous acceptances
+      const applicableAgreements = await storage.getAgreementsByRole(roles);
+      pendingAgreements = applicableAgreements;
+      requiresAgreements = true;
+    } else if (user.status === 'ACTIVE') {
+      // ACTIVE users don't need to see agreements
+      requiresAgreements = false;
+    }
+    // Note: SUSPENDED users are already handled above with early return
 
     // Create JWT token
     const jwtToken = jwt.sign(
@@ -387,7 +400,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
         roles,
         status: user.status
       },
-      requiresAgreements: pendingAgreements.length > 0,
+      requiresAgreements: requiresAgreements,
       pendingAgreements: pendingAgreements.map(a => ({
         id: a.id,
         title: a.title,
