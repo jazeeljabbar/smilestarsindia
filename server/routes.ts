@@ -585,6 +585,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     }
 
     console.log('Target school ID:', targetSchoolId);
+    console.log('Excel data rows:', jsonData.length);
 
     // Transform and validate data
     const students: any[] = [];
@@ -593,67 +594,8 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     for (let i = 0; i < jsonData.length; i++) {
       const row: any = jsonData[i];
       try {
-        // Determine target school based on user role and Excel data
-        let studentSchoolId = targetSchoolId; // Default for school admins
-        
-        if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
-          // Admin users: Extract franchisee and school from Excel
-          const franchiseeName = row['Franchisee Name']?.toString().trim();
-          const schoolName = row['School Name']?.toString().trim();
-          
-          if (!franchiseeName || !schoolName) {
-            results.errors.push(`Row ${i + 2}: Franchisee Name and School Name are required for admin uploads`);
-            results.failed++;
-            continue;
-          }
-          
-          // Find franchisee by name
-          const franchisee = allFranchisees.find(f => f.name.toLowerCase() === franchiseeName.toLowerCase());
-          if (!franchisee) {
-            results.errors.push(`Row ${i + 2}: Franchisee '${franchiseeName}' not found`);
-            results.failed++;
-            continue;
-          }
-          
-          // Find school by name within the franchisee
-          const school = allSchools.find(s => 
-            s.name.toLowerCase() === schoolName.toLowerCase() && 
-            s.parentId === franchisee.id
-          );
-          if (!school) {
-            results.errors.push(`Row ${i + 2}: School '${schoolName}' not found in franchisee '${franchiseeName}'`);
-            results.failed++;
-            continue;
-          }
-          
-          studentSchoolId = school.id;
-          
-        } else if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
-          // Franchise users: Extract school from Excel
-          const schoolName = row['School Name']?.toString().trim();
-          
-          if (!schoolName) {
-            results.errors.push(`Row ${i + 2}: School Name is required for franchise uploads`);
-            results.failed++;
-            continue;
-          }
-          
-          // Get user's accessible schools (from their franchisee)
-          const userFranchiseeSchools = allSchools.filter(school => 
-            req.user!.entityIds.includes(school.parentId || 0)
-          );
-          
-          const school = userFranchiseeSchools.find(s => 
-            s.name.toLowerCase() === schoolName.toLowerCase()
-          );
-          if (!school) {
-            results.errors.push(`Row ${i + 2}: School '${schoolName}' not found in your franchisee`);
-            results.failed++;
-            continue;
-          }
-          
-          studentSchoolId = school.id;
-        }
+        // For all users, use the pre-validated target school ID
+        const studentSchoolId = targetSchoolId;
 
         // Extract student data
         const studentData = {
@@ -736,8 +678,10 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
           ...studentData,
           rowNumber: i + 2
         });
+        console.log(`Row ${i + 2}: Valid student ${studentData.name}`);
 
       } catch (error) {
+        console.log(`Row ${i + 2}: Parsing error:`, error);
         errors.push({
           row: i + 2,
           error: 'Data parsing error: ' + (error as Error).message,
