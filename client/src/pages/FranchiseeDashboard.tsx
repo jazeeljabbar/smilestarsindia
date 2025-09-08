@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth.tsx';
 import { useLocation } from 'wouter';
 import { FranchiseAgreementModal } from '@/components/FranchiseAgreementModal';
+import { apiRequest } from '@/lib/queryClient';
 import { useState, useEffect } from 'react';
 
 export function FranchiseeDashboard() {
@@ -42,13 +43,10 @@ export function FranchiseeDashboard() {
   }, [activeMembership?.entityId, franchise?.status, agreementChecked]);
 
   const { data: schools = [] } = useQuery({
-    queryKey: ['/api/schools'],
-    queryFn: async () => {
-      const response = await fetch('/api/schools', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Failed to fetch schools');
-      return response.json();
+    queryKey: ['/api/schools', activeMembership?.entityId],
+    queryFn: () => {
+      const entityParam = activeMembership?.entityId ? `?entityId=${activeMembership.entityId}` : '';
+      return apiRequest(`/schools${entityParam}`);
     },
   });
 
