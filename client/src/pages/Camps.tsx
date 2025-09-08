@@ -154,13 +154,13 @@ export function Camps() {
       return;
     }
 
-    // For admin/franchisee roles, check accepted schools
+    // For admin/franchisee roles, check available schools
     if (activeRole !== 'SCHOOL_ADMIN') {
-      const acceptedSchools = availableSchools.filter((school: any) => school.agreementStatus === 'accepted');
-      if (acceptedSchools.length === 0) {
+      const validSchools = availableSchools.filter((school: any) => school.status === 'ACTIVE' || school.status === 'DRAFT');
+      if (validSchools.length === 0) {
         toast({
           title: 'No Schools Available',
-          description: 'No schools with accepted agreements found',
+          description: 'No schools found for camp scheduling',
           variant: 'destructive',
         });
         return;
