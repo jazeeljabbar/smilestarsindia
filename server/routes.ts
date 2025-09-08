@@ -735,7 +735,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     });
 
     // Check for duplicates in database
-    const existingStudents = defaultSchoolId ? await storage.getStudentsBySchool(defaultSchoolId) : [];
+    const existingStudents = targetSchoolId ? await storage.getStudentsBySchool(targetSchoolId) : [];
     const duplicatesInDB: any[] = [];
     
     students.forEach(student => {
