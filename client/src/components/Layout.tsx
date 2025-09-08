@@ -147,18 +147,21 @@ export function Layout({ children }: LayoutProps) {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center mr-8">
+            {/* Logo Section - Fixed Width */}
+            <div className="flex items-center flex-shrink-0 w-64">
+              <div className="flex items-center">
                 <img src="/logo.png" alt="Smile Stars India" className="h-8 w-8 mr-3" />
                 <h1 className="text-xl font-semibold text-gray-900">Smile Stars India</h1>
               </div>
             </div>
               
+            {/* Navigation - Centered */}
             <nav className="hidden md:flex space-x-6 flex-1 justify-center">
               <NavItems />
             </nav>
 
-            <div className="flex items-center space-x-3 flex-shrink-0">
+            {/* User Controls - Fixed Width */}
+            <div className="flex items-center space-x-3 flex-shrink-0 w-64 justify-end">
               <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-500">
                 <Bell className="h-5 w-5" />
               </Button>
