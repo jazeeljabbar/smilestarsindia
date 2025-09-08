@@ -453,7 +453,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 // Accept agreements endpoint
 router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
   try {
-    const { agreementIds, token, password } = req.body;
+    const { agreementIds, token, password, entityId } = req.body;
     
     if (!agreementIds || !Array.isArray(agreementIds)) {
       return res.status(400).json({ error: 'Agreement IDs are required' });
@@ -526,8 +526,14 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
     await storage.updateUser(userId, { status: 'ACTIVE' });
     
     // If this is a franchise or school agreement flow, also update entity status
-    if ((tokenType === 'FRANCHISE_AGREEMENT' || tokenType === 'SCHOOL_AGREEMENT') && franchiseeId) {
-      await storage.updateEntity(franchiseeId, { status: 'ACTIVE' });
+    let entityToUpdate = franchiseeId;
+    if (tokenType === 'REGULAR' && entityId) {
+      // For regular authenticated agreement acceptance, use the provided entityId
+      entityToUpdate = entityId;
+    }
+    
+    if (entityToUpdate && (tokenType === 'FRANCHISE_AGREEMENT' || tokenType === 'SCHOOL_AGREEMENT' || (tokenType === 'REGULAR' && entityId))) {
+      await storage.updateEntity(entityToUpdate, { status: 'ACTIVE' });
     }
 
     // Log the action
@@ -541,7 +547,7 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
         agreementIds: agreementIds.join(', '),
         totalAgreements: agreementIds.length,
         tokenType,
-        franchiseeId
+        entityId: entityToUpdate
       }
     });
 
@@ -549,7 +555,7 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
       success: true, 
       message: tokenType === 'FRANCHISE_AGREEMENT' ? 'Franchise activated successfully!' : 
                tokenType === 'SCHOOL_AGREEMENT' ? 'School activated successfully!' : 'Agreements accepted successfully',
-      entityActivated: tokenType === 'FRANCHISE_AGREEMENT' || tokenType === 'SCHOOL_AGREEMENT'
+      entityActivated: !!entityToUpdate
     });
   } catch (error) {
     console.error('Accept agreements error:', error);

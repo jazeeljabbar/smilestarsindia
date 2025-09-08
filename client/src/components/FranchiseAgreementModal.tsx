@@ -15,7 +15,7 @@ interface FranchiseAgreementModalProps {
 export function FranchiseAgreementModal({ isOpen, onClose }: FranchiseAgreementModalProps) {
   const [hasReadAgreement, setHasReadAgreement] = useState(false);
   const [isAccepted, setIsAccepted] = useState(false);
-  const { token } = useAuth();
+  const { token, activeMembership } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -28,7 +28,8 @@ export function FranchiseAgreementModal({ isOpen, onClose }: FranchiseAgreementM
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          agreementIds: [1] // Franchise agreement ID
+          agreementIds: [1], // Franchise agreement ID
+          entityId: activeMembership?.entityId // Include franchise entity ID to activate
         })
       });
       if (!response.ok) {

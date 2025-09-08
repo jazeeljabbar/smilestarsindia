@@ -37,11 +37,15 @@ export default function SchoolAdminDashboard() {
     queryFn: () => apiRequest('/students/my-school'),
   });
 
-  // Agreement acceptance mutation
+  // Agreement acceptance mutation  
   const acceptAgreementMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/schools/accept-agreement', {
+      return await apiRequest('/auth/accept-agreements', {
         method: 'POST',
+        body: JSON.stringify({
+          agreementIds: [2], // School agreement ID (different from franchise)
+          entityId: school?.id // Include school entity ID to activate
+        })
       });
     },
     onSuccess: () => {
@@ -64,8 +68,8 @@ export default function SchoolAdminDashboard() {
     },
   });
 
-  // Show agreement modal on first login if not accepted - MANDATORY
-  const shouldShowAgreement = school && school.agreementStatus === 'pending';
+  // Show agreement modal on first login if school is in DRAFT status - MANDATORY
+  const shouldShowAgreement = school && school.status === 'DRAFT';
 
   if (isLoading) {
     console.log('School data is loading...');
