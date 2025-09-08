@@ -12,8 +12,10 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  activeRole: string | null;
   login: (token: string, user: User) => void;
   logout: () => void;
+  switchRole: (role: string) => void;
   isLoading: boolean;
 }
 
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [activeRole, setActiveRole] = useState<string | null>(localStorage.getItem('activeRole'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .then((userData) => {
           setUser(userData);
+          // Set active role if not already set or if stored role is not in user's roles
+          const storedRole = localStorage.getItem('activeRole');
+          if (!storedRole || !userData.roles?.includes(storedRole)) {
+            // Default to first role or primary role based on priority
+            const defaultRole = getPrimaryRole(userData.roles || []);
+            setActiveRole(defaultRole);
+            if (defaultRole) {
+              localStorage.setItem('activeRole', defaultRole);
+            }
+          } else {
+            setActiveRole(storedRole);
+          }
         })
         .catch((error) => {
           console.warn('Token verification failed:', error);
@@ -58,19 +73,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(token);
     setUser(user);
     localStorage.setItem('token', token);
+    
+    // Set default active role
+    const defaultRole = getPrimaryRole(user.roles || []);
+    setActiveRole(defaultRole);
+    if (defaultRole) {
+      localStorage.setItem('activeRole', defaultRole);
+    }
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
+    setActiveRole(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('activeRole');
+  };
+
+  const switchRole = (role: string) => {
+    if (user?.roles?.includes(role)) {
+      setActiveRole(role);
+      localStorage.setItem('activeRole', role);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, activeRole, login, logout, switchRole, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+// Helper function to determine primary role based on hierarchy
+function getPrimaryRole(roles: string[]): string | null {
+  const rolePriority = [
+    'SYSTEM_ADMIN',
+    'ORG_ADMIN', 
+    'FRANCHISE_ADMIN',
+    'PRINCIPAL',
+    'SCHOOL_ADMIN',
+    'TEACHER',
+    'DENTIST',
+    'PARENT'
+  ];
+  
+  for (const role of rolePriority) {
+    if (roles.includes(role)) {
+      return role;
+    }
+  }
+  
+  return roles.length > 0 ? roles[0] : null;
 }
 
 export function useAuth() {
