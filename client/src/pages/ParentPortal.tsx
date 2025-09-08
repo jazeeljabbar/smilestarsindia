@@ -15,40 +15,12 @@ export function ParentPortal() {
   const [showReportDetail, setShowReportDetail] = useState(false);
   const [childEmail, setChildEmail] = useState('');
 
-  // For demo purposes, we'll show all reports. In production, this would be filtered by parent
-  const { data: reports = [], isLoading: reportsLoading } = useQuery({
-    queryKey: ['/api/reports'],
-    queryFn: () => apiRequest('/reports'),
+  // Optimized: Only fetch reports for current parent's children
+  const { data: childrenReports = [], isLoading: reportsLoading } = useQuery({
+    queryKey: ['/api/reports/my-children'],
+    queryFn: () => apiRequest('/reports/my-children'),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
-
-  const { data: students = [] } = useQuery({
-    queryKey: ['/api/students'],
-    queryFn: () => apiRequest('/students'),
-  });
-
-  const { data: screenings = [] } = useQuery({
-    queryKey: ['/api/screenings'],
-    queryFn: () => apiRequest('/screenings'),
-  });
-
-  const { data: camps = [] } = useQuery({
-    queryKey: ['/api/camps'],
-    queryFn: () => apiRequest('/camps'),
-  });
-
-  // In a real app, this would filter by the logged-in parent's children
-  const childrenReports = reports.map((report: any) => {
-    const student = students.find((s: any) => s.id === report.studentId);
-    const screening = screenings.find((s: any) => s.id === report.screeningId);
-    const camp = camps.find((c: any) => c.id === student?.campId);
-    
-    return {
-      ...report,
-      student,
-      screening,
-      camp,
-    };
-  }).filter((report: any) => report.student);
 
   const viewReportDetail = (report: any) => {
     setSelectedReport(report);

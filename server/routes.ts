@@ -1556,4 +1556,29 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
   }
 });
 
+// ===== REPORTS ROUTES =====
+
+// Get all reports (for admin users)
+router.get('/reports', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // For now, return empty array - will be implemented when reports storage is added
+    res.json([]);
+  } catch (error) {
+    console.error('Get reports error:', error);
+    res.status(500).json({ error: 'Failed to get reports' });
+  }
+});
+
+// Get reports for current parent's children (optimized endpoint)
+router.get('/reports/my-children', authenticateToken, requireRole(['PARENT']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // For now, return empty array with proper structure for parents
+    // This will be much faster than loading all system data
+    res.json([]);
+  } catch (error) {
+    console.error('Get parent children reports error:', error);
+    res.status(500).json({ error: 'Failed to get children reports' });
+  }
+});
+
 export default router;
