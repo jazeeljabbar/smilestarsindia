@@ -641,12 +641,21 @@ export function Students() {
                         onChange={handleFileSelect}
                         className="hidden"
                         id="file-upload"
+                        ref={(input) => {
+                          if (input) {
+                            input.onclick = () => {
+                              input.value = '';
+                            };
+                          }
+                        }}
                       />
-                      <label htmlFor="file-upload">
-                        <Button type="button" className="cursor-pointer">
-                          Choose File
-                        </Button>
-                      </label>
+                      <Button 
+                        type="button" 
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        className="cursor-pointer"
+                      >
+                        {uploadFile ? uploadFile.name : 'Choose File'}
+                      </Button>
                     </div>
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium text-blue-900 mb-2">Instructions:</h4>
