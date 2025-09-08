@@ -2113,7 +2113,44 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
       return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
     });
 
-    res.json(filteredStudents);
+    // Transform student data to include metadata fields at top level and parent info
+    const transformedStudents = await Promise.all(filteredStudents.map(async (student) => {
+      // Get parent information
+      const parentLinks = await storage.getParentStudentLinksByStudent(student.id);
+      let parentName = '';
+      let parentPhone = '';
+      
+      if (parentLinks.length > 0) {
+        const primaryParent = parentLinks.find(link => link.custodyFlags?.emergencyContact) || parentLinks[0];
+        const parentUser = await storage.getUserById(primaryParent.parentUserId);
+        if (parentUser) {
+          parentName = parentUser.name;
+          parentPhone = parentUser.phone || '';
+        }
+      }
+
+      // Check screening status
+      const screenings = await storage.getScreeningsByStudentEntity(student.id);
+      const hasScreening = screenings.length > 0;
+      const screeningCompleted = screenings.some((s: any) => s.status === 'COMPLETED');
+
+      return {
+        ...student,
+        // Flatten metadata fields for easier access
+        age: student.metadata?.age || '',
+        gender: student.metadata?.gender || '',
+        grade: student.metadata?.grade || '',
+        rollNumber: student.metadata?.rollNumber || '',
+        // Add parent information
+        parentName,
+        parentPhone,
+        // Add screening status
+        hasScreening,
+        screeningCompleted
+      };
+    }));
+
+    res.json(transformedStudents);
   } catch (error) {
     console.error('Get students error:', error);
     res.status(500).json({ error: 'Failed to get students' });

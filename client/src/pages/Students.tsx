@@ -252,7 +252,7 @@ export function Students() {
 
   const filteredStudents = students.filter((student: any) => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase());
+                         (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
   });
 
@@ -643,7 +643,7 @@ export function Students() {
                         id="file-upload"
                       />
                       <label htmlFor="file-upload">
-                        <Button className="cursor-pointer">
+                        <Button type="button" className="cursor-pointer">
                           Choose File
                         </Button>
                       </label>
