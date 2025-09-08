@@ -2639,12 +2639,36 @@ router.delete('/schools/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'O
   }
 });
 
+// Debug route to check database state
+router.get('/debug/entities', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const allStudents = await storage.getEntitiesByType('STUDENT');
+    const allSchools = await storage.getEntitiesByType('SCHOOL');
+    const allFranchisees = await storage.getEntitiesByType('FRANCHISEE');
+    const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+    
+    res.json({
+      students: allStudents.length,
+      schools: allSchools.length,
+      franchisees: allFranchisees.length,
+      userMemberships,
+      userRoles: req.user!.roles,
+      userEntityIds: req.user!.entityIds,
+      sampleStudents: allStudents.slice(0, 3),
+      sampleSchools: allSchools.slice(0, 3)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/students - return STUDENT entities
 router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { campId, franchiseeId, schoolId, page = '1', pageSize = '20', search } = req.query;
     const students = await storage.getEntitiesByType('STUDENT');
     
+    // Debug logging (remove after testing)
     console.log('DEBUG Students endpoint:');
     console.log('- Total students in DB:', students.length);
     console.log('- User roles:', req.user!.roles);
