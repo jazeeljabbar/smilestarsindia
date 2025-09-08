@@ -33,21 +33,39 @@ const parentSchema = z.object({
   medicalDecisions: z.boolean().default(false),
 });
 
-// Student form schema with multiple parents
-const studentFormSchema = z.object({
-  name: z.string().min(1, 'Student name is required'),
-  age: z.number().min(1, 'Age must be at least 1').max(18, 'Age must be less than 18'),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { required_error: 'Gender is required' }),
-  grade: z.string().min(1, 'Grade is required'),
-  rollNumber: z.string().min(1, 'Roll number is required'),
-  schoolId: z.number().min(1, 'School selection is required'),
-  parents: z.array(parentSchema).min(1, 'At least one parent is required').max(4, 'Maximum 4 parents allowed'),
-});
+// Student form schema with multiple parents - dynamic based on user role
+const createStudentFormSchema = (userRoles: string[]) => {
+  const baseSchema = z.object({
+    name: z.string().min(1, 'Student name is required'),
+    age: z.number().min(1, 'Age must be at least 1').max(18, 'Age must be less than 18'),
+    gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { required_error: 'Gender is required' }),
+    grade: z.string().min(1, 'Grade is required'),
+    rollNumber: z.string().min(1, 'Roll number is required'),
+    schoolId: z.number().min(1, 'School selection is required'),
+    parents: z.array(parentSchema).min(1, 'At least one parent is required').max(4, 'Maximum 4 parents allowed'),
+  });
 
-type StudentFormData = z.infer<typeof studentFormSchema>;
+  // Add franchisee selection for system admins
+  if (userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) {
+    return baseSchema.extend({
+      franchiseeId: z.number().optional(),
+    });
+  }
+
+  return baseSchema;
+};
+
+// Get current user roles to determine form schema
+const useCurrentUserRoles = () => {
+  const { user } = useAuth();
+  return user?.roles || [];
+};
+
+type StudentFormData = z.infer<ReturnType<typeof createStudentFormSchema>>;
 
 export function Students() {
   const { user } = useAuth();
+  const userRoles = useCurrentUserRoles();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -56,6 +74,7 @@ export function Students() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCamp, setSelectedCamp] = useState<string>('all');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [selectedFranchiseeId, setSelectedFranchiseeId] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<any>(null);
   const [uploadStep, setUploadStep] = useState<'select' | 'uploading' | 'complete'>('select');
@@ -196,6 +215,28 @@ export function Students() {
     queryFn: () => apiRequest('/entities?type=SCHOOL'),
   });
 
+  // Franchisees data for system admins
+  const { data: franchisees = [] } = useQuery({
+    queryKey: ['/api/franchisees/list'],
+    enabled: userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN'),
+  });
+
+  // Role-based schools data for registration form
+  const { data: availableSchools = [] } = useQuery({
+    queryKey: ['/api/schools/list', selectedFranchiseeId],
+    queryFn: () => {
+      const params = selectedFranchiseeId ? `?franchiseeId=${selectedFranchiseeId}` : '';
+      return fetch(`/api/schools/list${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      }).then(res => res.json());
+    },
+  });
+
+  // Get dynamic form schema based on user roles
+  const studentFormSchema = createStudentFormSchema(userRoles);
+  
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
@@ -205,6 +246,7 @@ export function Students() {
       grade: '',
       rollNumber: '',
       schoolId: 0,
+      ...(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN') ? { franchiseeId: undefined } : {}),
       parents: [{
         name: '',
         email: '',

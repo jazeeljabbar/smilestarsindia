@@ -122,6 +122,58 @@ router.get('/entities/:type', authenticateToken, async (req: AuthenticatedReques
   }
 });
 
+// Get franchisees for admin dropdown
+router.get('/franchisees/list', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const franchisees = await storage.getEntitiesByType('FRANCHISEE');
+    res.json(franchisees);
+  } catch (error) {
+    console.error('Get franchisees error:', error);
+    res.status(500).json({ error: 'Failed to get franchisees' });
+  }
+});
+
+// Get schools for dropdown (filtered by user role)
+router.get('/schools/list', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { franchiseeId } = req.query;
+    let schools = await storage.getEntitiesByType('SCHOOL');
+    
+    // Filter schools based on user role and context
+    if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+      // Admin can see all schools, optionally filtered by franchisee
+      if (franchiseeId) {
+        schools = schools.filter(school => school.parentId === parseInt(franchiseeId as string));
+      }
+    } else if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+      // Franchise admin can only see schools under their franchisee
+      const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+      const franchiseeMembership = userMemberships.find(m => m.role === 'FRANCHISE_ADMIN');
+      if (franchiseeMembership) {
+        schools = schools.filter(school => school.parentId === franchiseeMembership.entityId);
+      } else {
+        schools = [];
+      }
+    } else if (req.user!.roles.includes('SCHOOL_ADMIN')) {
+      // School admin can only see their assigned school
+      const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+      const schoolMembership = userMemberships.find(m => m.role === 'SCHOOL_ADMIN');
+      if (schoolMembership) {
+        schools = schools.filter(school => school.id === schoolMembership.entityId);
+      } else {
+        schools = [];
+      }
+    } else {
+      schools = [];
+    }
+    
+    res.json(schools);
+  } catch (error) {
+    console.error('Get schools error:', error);
+    res.status(500).json({ error: 'Failed to get schools' });
+  }
+});
+
 // Get schools by franchisee
 router.get('/franchisees/:franchiseeId/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -156,11 +208,29 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
       return res.status(400).json({ error: 'Missing required fields or invalid parent data' });
     }
 
-    // Verify school exists
+    // Verify school exists and user has permission to register students there
     const school = await storage.getEntityById(schoolId);
     if (!school || school.type !== 'SCHOOL') {
       return res.status(400).json({ error: 'Invalid school selected' });
     }
+
+    // Check permissions based on user role
+    const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+    
+    if (req.user!.roles.includes('SCHOOL_ADMIN')) {
+      // School admin can only register for their assigned school
+      const schoolMembership = userMemberships.find(m => m.role === 'SCHOOL_ADMIN');
+      if (!schoolMembership || schoolMembership.entityId !== schoolId) {
+        return res.status(403).json({ error: 'You can only register students for your assigned school' });
+      }
+    } else if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+      // Franchise admin can only register for schools under their franchisee
+      const franchiseeMembership = userMemberships.find(m => m.role === 'FRANCHISE_ADMIN');
+      if (!franchiseeMembership || school.parentId !== franchiseeMembership.entityId) {
+        return res.status(403).json({ error: 'You can only register students for schools under your franchisee' });
+      }
+    }
+    // System admin and org admin can register for any school (no additional checks needed)
 
     // Check for duplicate student (same name + school combination)
     const existingStudents = await storage.getStudentsBySchool(schoolId);
