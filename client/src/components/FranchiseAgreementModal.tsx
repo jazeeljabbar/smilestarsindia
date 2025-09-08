@@ -21,12 +21,15 @@ export function FranchiseAgreementModal({ isOpen, onClose }: FranchiseAgreementM
 
   const acceptAgreementMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/franchises/accept-agreement', {
+      const response = await fetch('/auth/accept-agreements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        body: JSON.stringify({
+          agreementIds: [1] // Franchise agreement ID
+        })
       });
       if (!response.ok) {
         const errorData = await response.json();
