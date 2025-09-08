@@ -38,7 +38,7 @@ export function FranchiseAgreementModal({ isOpen, onClose }: FranchiseAgreementM
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/franchises/my-franchise'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
       toast({
         title: 'Agreement Accepted',
         description: 'Welcome to Smile Stars India! You can now access all franchise features.',
