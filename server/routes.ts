@@ -934,7 +934,7 @@ router.get('/franchises', authenticateToken, async (req: AuthenticatedRequest, r
       const metadata = entity.metadata || {};
       
       // Get school count for this franchisee
-      const schools = await storage.getEntitiesByParentId(entity.id);
+      const schools = await storage.getEntitiesByParent(entity.id);
       const schoolCount = schools.filter(school => school.type === 'SCHOOL').length;
       
       return {
@@ -1027,7 +1027,7 @@ router.delete('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN',
     const entityId = parseInt(req.params.id);
     
     // Check if franchise has any schools before deleting
-    const schools = await storage.getEntitiesByParentId(entityId);
+    const schools = await storage.getEntitiesByParent(entityId);
     if (schools.length > 0) {
       return res.status(400).json({ 
         error: `Cannot delete franchise. It has ${schools.length} school(s) associated with it. Please reassign or delete the schools first.` 
