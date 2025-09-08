@@ -1393,21 +1393,33 @@ router.delete('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN',
   }
 });
 
-// GET /api/schools - return SCHOOL entities
+// GET /api/schools - return SCHOOL entities filtered by active entity context
 router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schools = await storage.getEntitiesByType('SCHOOL');
     
-    // Filter schools based on user's entity access and roles
+    // Get active entity context from query parameter (sent by frontend role switcher)
+    const activeEntityId = req.query.entityId ? parseInt(req.query.entityId as string) : null;
+    
+    // Filter schools based on user's active entity context and roles
     const filteredSchools = schools.filter(school => {
       // System and Org Admins can see all schools
       if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
         return true;
       }
       
-      // For franchise admins, only show schools under their franchises
+      // For franchise admins with active entity context, only show schools under that specific franchise
+      if (req.user!.roles.includes('FRANCHISE_ADMIN') && activeEntityId) {
+        // Verify user has access to the requested entity
+        const userEntityIds = req.user!.entityIds || [];
+        if (userEntityIds.includes(activeEntityId)) {
+          return school.parentId === activeEntityId;
+        }
+        return false;
+      }
+      
+      // Fallback: For franchise admins without entity context, show schools from all their franchises
       if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
-        // Get the user's franchise entity IDs from their entityIds
         const userEntityIds = req.user!.entityIds || [];
         return userEntityIds.includes(school.parentId || 0);
       }

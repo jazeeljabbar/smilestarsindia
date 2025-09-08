@@ -41,7 +41,7 @@ const schoolFormSchema = z.object({
 type SchoolFormData = z.infer<typeof schoolFormSchema>;
 
 export function Schools() {
-  const { user, token } = useAuth();
+  const { user, token, activeMembership } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -59,8 +59,11 @@ export function Schools() {
   }, [location]);
 
   const { data: schools = [], isLoading } = useQuery({
-    queryKey: ['/api/schools'],
-    queryFn: () => apiRequest('/schools'),
+    queryKey: ['/api/schools', activeMembership?.entityId],
+    queryFn: () => {
+      const entityParam = activeMembership?.entityId ? `?entityId=${activeMembership.entityId}` : '';
+      return apiRequest(`/schools${entityParam}`);
+    },
   });
 
   // Fetch franchisees for selection
