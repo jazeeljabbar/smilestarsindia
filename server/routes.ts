@@ -391,15 +391,16 @@ router.get('/auth/me', authenticateToken, async (req: AuthenticatedRequest, res:
   try {
     const user = await storage.getUserById(req.user!.id);
     const memberships = await storage.getMembershipsByUser(req.user!.id);
+    const roles = memberships.map(m => m.role);
     
+    // Return user object with roles array that frontend expects
     res.json({
-      user,
-      memberships: memberships.map(m => ({
-        id: m.id,
-        entityId: m.entityId,
-        role: m.role,
-        isPrimary: m.isPrimary
-      }))
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles: roles,
+      status: user.status,
+      entityIds: memberships.map(m => m.entityId)
     });
   } catch (error) {
     console.error('Get current user error:', error);
@@ -631,13 +632,16 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
     const stats = {
       totalUsers: users.length,
       totalEntities: entities.length,
+      totalFranchises: entities.filter(e => e.type === 'FRANCHISEE').length, // Match frontend field name
       totalFranchisees: entities.filter(e => e.type === 'FRANCHISEE').length,
       totalSchools: entities.filter(e => e.type === 'SCHOOL').length,
       totalStudents: entities.filter(e => e.type === 'STUDENT').length,
       totalCamps: camps.length,
       totalScreenings: screenings.length,
       activeCamps: camps.filter(c => c.status === 'active').length,
-      completedScreenings: screenings.filter(s => s.isCompleted).length
+      completedScreenings: screenings.filter(s => s.isCompleted).length,
+      studentsScreened: screenings.filter(s => s.isCompleted).length, // Add missing field
+      reportsGenerated: screenings.filter(s => s.isCompleted).length // Add missing field
     };
 
     res.json(stats);
