@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Mail, Phone, MapPin, Building2, Users, CheckCircle, Clock, AlertCircle, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Edit, Mail, Phone, MapPin, Building2, Users, CheckCircle, Clock, AlertCircle, Trash2, MoreVertical, Search, School } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -24,6 +24,7 @@ export function Franchisees() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFranchise, setEditingFranchise] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Only system admins can access this page
   if (!user?.roles?.includes('SYSTEM_ADMIN')) {
@@ -48,6 +49,31 @@ export function Franchisees() {
       return response.json();
     },
   });
+
+  // Filter franchises based on search term
+  const filteredFranchises = useMemo(() => {
+    if (!searchTerm.trim()) return franchises;
+    
+    const term = searchTerm.toLowerCase();
+    return franchises.filter((franchise: any) =>
+      franchise.name?.toLowerCase().includes(term) ||
+      franchise.region?.toLowerCase().includes(term) ||
+      franchise.contactPerson?.toLowerCase().includes(term) ||
+      franchise.contactEmail?.toLowerCase().includes(term) ||
+      franchise.city?.toLowerCase().includes(term) ||
+      franchise.state?.toLowerCase().includes(term)
+    );
+  }, [franchises, searchTerm]);
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    const total = franchises.length;
+    const active = franchises.filter((f: any) => f.isActive).length;
+    const inactive = total - active;
+    const totalSchools = franchises.reduce((sum: number, f: any) => sum + (f.schoolCount || 0), 0);
+    
+    return { total, active, inactive, totalSchools };
+  }, [franchises]);
 
   const franchiseFormSchema = z.object({
     name: z.string().min(1, 'Franchise name is required'),
@@ -456,9 +482,76 @@ export function Franchisees() {
         </Dialog>
       </div>
 
+      {/* Statistics Cards */}
+      {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Franchisees</p>
+                  <p className="text-2xl font-bold text-gray-900">{statistics.total}</p>
+                </div>
+                <Building2 className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Active</p>
+                  <p className="text-2xl font-bold text-green-600">{statistics.active}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Inactive</p>
+                  <p className="text-2xl font-bold text-gray-500">{statistics.inactive}</p>
+                </div>
+                <Clock className="h-8 w-8 text-gray-500" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Schools</p>
+                  <p className="text-2xl font-bold text-purple-600">{statistics.totalSchools}</p>
+                </div>
+                <School className="h-8 w-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search franchisees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
       {/* Franchisees Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {franchises.map((franchise: any) => (
+        {filteredFranchises.map((franchise: any) => (
           <Card key={franchise.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -544,6 +637,14 @@ export function Franchisees() {
                 </div>
               </div>
 
+              {/* School Count */}
+              <div className="flex items-center space-x-2">
+                <School className="h-4 w-4 text-purple-600" />
+                <span className="text-sm text-gray-600">
+                  {franchise.schoolCount || 0} school{(franchise.schoolCount || 0) !== 1 ? 's' : ''}
+                </span>
+              </div>
+
               {/* Agreement Status Details */}
               {franchise.agreementAcceptedAt && (
                 <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
@@ -571,7 +672,32 @@ export function Franchisees() {
         ))}
       </div>
 
-      {franchises.length === 0 && (
+      {filteredFranchises.length === 0 && !isLoading && (
+        <Card className="text-center py-12">
+          <CardContent>
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchTerm ? 'No franchisees found' : 'No franchisees yet'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {searchTerm 
+                ? `No franchisees match "${searchTerm}". Try adjusting your search terms.`
+                : 'Create your first franchisee to start expanding your dental care network.'
+              }
+            </p>
+            {!searchTerm && (
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Franchisee
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {franchises.length === 0 && isLoading && (
         <Card className="text-center py-12">
           <CardContent>
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

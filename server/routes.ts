@@ -929,7 +929,42 @@ router.get('/franchises', authenticateToken, async (req: AuthenticatedRequest, r
       return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
     });
 
-    res.json(filteredFranchisees);
+    // Transform entities to include mapped properties and school counts
+    const transformedFranchisees = await Promise.all(filteredFranchisees.map(async entity => {
+      const metadata = entity.metadata || {};
+      
+      // Get school count for this franchisee
+      const schools = await storage.getEntitiesByParentId(entity.id);
+      const schoolCount = schools.filter(school => school.type === 'SCHOOL').length;
+      
+      return {
+        id: entity.id,
+        name: entity.name,
+        type: entity.type,
+        status: entity.status,
+        parentId: entity.parentId,
+        createdAt: entity.createdAt,
+        updatedAt: entity.updatedAt,
+        // Map metadata properties to flat structure for frontend compatibility
+        region: metadata.region || '',
+        contactPerson: metadata.franchiseContactPerson || '',
+        contactEmail: metadata.franchiseContactEmail || '',
+        contactPhone: metadata.franchiseContactPhone || '',
+        address: metadata.franchiseAddress || '',
+        city: metadata.franchiseCity || '',
+        state: metadata.franchiseState || '',
+        pincode: metadata.franchisePincode || '',
+        // Additional computed properties
+        schoolCount,
+        isActive: entity.status === 'ACTIVE',
+        agreementStatus: 'accepted', // Default for now, can be enhanced later
+        agreementAcceptedAt: entity.createdAt, // Default for now
+        // Keep original metadata for any additional needs
+        metadata
+      };
+    }));
+
+    res.json(transformedFranchisees);
   } catch (error) {
     console.error('Get franchises error:', error);
     res.status(500).json({ error: 'Failed to get franchises' });
