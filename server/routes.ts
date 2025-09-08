@@ -356,6 +356,10 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
 
     if (schoolMembership) {
       defaultSchoolId = schoolMembership.entityId;
+    } else {
+      return res.status(400).json({ 
+        error: 'You must be a School Admin to upload students. Please contact your administrator.' 
+      });
     }
 
     // Transform and validate data

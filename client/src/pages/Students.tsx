@@ -58,7 +58,7 @@ export function Students() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<any>(null);
-  const [uploadStep, setUploadStep] = useState<'select' | 'preview' | 'upload'>('select');
+  const [uploadStep, setUploadStep] = useState<'select' | 'uploading' | 'complete'>('select');
 
   // Helper functions for managing parents
   const addParent = () => {
@@ -90,7 +90,9 @@ export function Students() {
     const file = event.target.files?.[0];
     if (file) {
       setUploadFile(file);
-      setUploadStep('upload');
+      setUploadStep('uploading');
+      // Auto-upload the file immediately
+      bulkUploadMutation.mutate(file);
     }
   };
 
@@ -133,15 +135,22 @@ export function Students() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      setUploadStep('complete');
       toast({
         title: 'Success',
         description: data.message,
       });
-      setShowBulkUpload(false);
-      setUploadFile(null);
-      setUploadStep('select');
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        setShowBulkUpload(false);
+        setUploadFile(null);
+        setUploadStep('select');
+      }, 2000);
     },
     onError: (error: any) => {
+      setUploadStep('select');
+      setUploadFile(null);
+      
       const errorData = error.response?.data;
       let errorMessage = 'Failed to upload students';
       
@@ -624,34 +633,61 @@ export function Students() {
               </DialogHeader>
               <div className="flex-1 overflow-y-auto pr-2">
                 <div className="space-y-4">
-                  <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
-                    <p className="text-gray-500 mb-4">
-                      Select an Excel file (.xlsx, .xls) containing student data
-                    </p>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="file-upload"
-                      ref={(input) => {
-                        if (input) {
-                          input.onclick = () => {
-                            input.value = '';
-                          };
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                      className="cursor-pointer"
-                    >
-                      {uploadFile ? uploadFile.name : 'Choose File'}
-                    </Button>
-                  </div>
+                  {uploadStep === 'select' && (
+                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
+                      <p className="text-gray-500 mb-4">
+                        Select an Excel file (.xlsx, .xls) containing student data
+                      </p>
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="file-upload"
+                        ref={(input) => {
+                          if (input) {
+                            input.onclick = () => {
+                              input.value = '';
+                            };
+                          }
+                        }}
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        className="cursor-pointer"
+                      >
+                        Choose File to Upload
+                      </Button>
+                    </div>
+                  )}
+
+                  {uploadStep === 'uploading' && (
+                    <div className="text-center p-8 border-2 border-solid border-blue-300 rounded-lg bg-blue-50">
+                      <div className="mx-auto h-12 w-12 mb-4 relative">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                      </div>
+                      <h3 className="text-lg font-medium text-blue-900 mb-2">Uploading Students...</h3>
+                      <p className="text-blue-700 mb-4">
+                        Processing {uploadFile?.name}
+                      </p>
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {uploadStep === 'complete' && (
+                    <div className="text-center p-8 border-2 border-solid border-green-300 rounded-lg bg-green-50">
+                      <CheckCircle className="mx-auto h-12 w-12 text-green-600 mb-4" />
+                      <h3 className="text-lg font-medium text-green-900 mb-2">Upload Complete!</h3>
+                      <p className="text-green-700 mb-4">
+                        Students have been successfully uploaded
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h4 className="font-medium text-blue-900 mb-2">Required Excel Format:</h4>
@@ -682,7 +718,7 @@ export function Students() {
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-4 mt-6 border-t">
+                <div className="flex justify-end pt-4 mt-6 border-t">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -691,25 +727,10 @@ export function Students() {
                       setUploadStep('select');
                       setUploadFile(null);
                     }}
+                    disabled={uploadStep === 'uploading'}
                   >
-                    Cancel
+                    {uploadStep === 'complete' ? 'Close' : 'Cancel'}
                   </Button>
-                  {uploadFile && (
-                    <Button 
-                      onClick={() => bulkUploadMutation.mutate(uploadFile)}
-                      disabled={bulkUploadMutation.isPending}
-                      className="flex items-center gap-2"
-                    >
-                      {bulkUploadMutation.isPending ? (
-                        <>Processing...</>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4" />
-                          Upload Students
-                        </>
-                      )}
-                    </Button>
-                  )}
                 </div>
               </div>
             </DialogContent>
