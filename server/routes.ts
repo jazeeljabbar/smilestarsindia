@@ -575,6 +575,76 @@ router.get('/users', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN'
   }
 });
 
+// Update user
+router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { name, email, username, roles, franchiseeId, schoolId } = req.body;
+    
+    // Check if user exists
+    const existingUser = await storage.getUserById(userId);
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update user basic info
+    const updatedUser = await storage.updateUser(userId, {
+      name: name || existingUser.name,
+      email: email || existingUser.email,
+    });
+    
+    // Update user memberships if roles are provided
+    if (roles && roles.length > 0) {
+      // Remove existing memberships
+      await storage.deleteMembershipsByUser(userId);
+      
+      // Add new memberships
+      for (const role of roles) {
+        let entityId = 1; // Default to root organization
+        
+        // Determine entity ID based on role and provided IDs
+        if (role === 'FRANCHISE_ADMIN' && franchiseeId) {
+          entityId = franchiseeId;
+        } else if (['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER'].includes(role) && schoolId) {
+          entityId = schoolId;
+        } else if (role === 'PARENT' && schoolId) {
+          entityId = schoolId;
+        }
+        
+        await storage.createMembership({
+          userId: userId,
+          entityId: entityId,
+          role: role as any,
+          isPrimary: true,
+          validFrom: new Date(),
+        });
+      }
+    }
+    
+    // Get updated user with memberships
+    const memberships = await storage.getMembershipsByUser(userId);
+    const userWithRoles = {
+      ...updatedUser,
+      roles: memberships.map(m => m.role),
+      memberships: memberships
+    };
+    
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'UPDATE_USER',
+      targetId: userId,
+      targetType: 'USER',
+      metadata: { updatedUserEmail: updatedUser.email, updatedUserName: updatedUser.name, roles }
+    });
+
+    res.json(userWithRoles);
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
 // Delete user
 router.delete('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
