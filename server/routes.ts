@@ -609,6 +609,34 @@ router.get('/auth/memberships', authenticateToken, async (req: AuthenticatedRequ
 });
 
 // Get entities (with role-based filtering)
+// GET /entities/:id - return single entity by ID
+router.get('/entities/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityId = parseInt(req.params.id);
+    const entity = await storage.getEntityById(entityId);
+    
+    if (!entity) {
+      return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // Check if user has access to this entity
+    const accessibleEntityIds = req.user!.entityIds || [];
+    const hasAccess = req.user!.roles.includes('SYSTEM_ADMIN') || 
+                     req.user!.roles.includes('ORG_ADMIN') ||
+                     accessibleEntityIds.includes(entity.id) ||
+                     accessibleEntityIds.includes(entity.parentId || 0);
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this entity' });
+    }
+
+    res.json(entity);
+  } catch (error) {
+    console.error('Get entity by ID error:', error);
+    res.status(500).json({ error: 'Failed to get entity' });
+  }
+});
+
 router.get('/entities', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { type, parentId } = req.query;

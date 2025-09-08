@@ -9,11 +9,12 @@ import { FranchiseAgreementModal } from '@/components/FranchiseAgreementModal';
 import { useState, useEffect } from 'react';
 
 export function FranchiseeDashboard() {
-  const { user, token, activeRole } = useAuth();
+  const { user, token, activeRole, activeMembership } = useAuth();
   const [, setLocation] = useLocation();
   const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreementChecked, setAgreementChecked] = useState(false);
 
-  // Fetch all franchises and filter for current user's access
+  // Fetch franchises and get the one matching the active membership
   const { data: franchises = [] } = useQuery({
     queryKey: ['/api/franchises'],
     queryFn: async () => {
@@ -26,17 +27,19 @@ export function FranchiseeDashboard() {
     enabled: !!user && activeRole === 'FRANCHISE_ADMIN',
   });
 
-  // Get the active franchise based on user's current role context
-  // For now, we'll use the first franchise the user has access to
-  // In the future, this could be enhanced to track which franchise corresponds to the active role
-  const franchise = franchises.length > 0 ? franchises[0] : null;
+  // Get the franchise that matches the active membership entity
+  const franchise = franchises.find(f => f.id === activeMembership?.entityId) || null;
 
-  // Show agreement modal on first login if not accepted
+  // Show agreement modal only once per session per franchise if not accepted
   useEffect(() => {
-    if (franchise && franchise.agreementStatus !== 'accepted') {
+    if (franchise && franchise.status === 'DRAFT' && !agreementChecked) {
       setShowAgreementModal(true);
+      setAgreementChecked(true); // Mark as checked so it won't show again this session
+    } else if (franchise && franchise.status === 'ACTIVE') {
+      setShowAgreementModal(false);
+      setAgreementChecked(false); // Reset for next time
     }
-  }, [franchise]);
+  }, [activeMembership?.entityId, franchise?.status, agreementChecked]);
 
   const { data: schools = [] } = useQuery({
     queryKey: ['/api/schools'],
@@ -119,7 +122,7 @@ export function FranchiseeDashboard() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}!</h1>
             <p className="text-blue-100">
-              {franchise ? `Managing ${franchise.name} - ${franchise.region}` : 'Franchisee Dashboard'}
+              {franchise ? `Managing ${franchise.name} - ${franchise.region || franchise.city}` : 'Franchisee Dashboard'}
             </p>
             {franchise && (
               <div className="mt-2">
@@ -150,17 +153,17 @@ export function FranchiseeDashboard() {
                 <p className="text-lg font-semibold">{franchise.name}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Region</p>
-                <p className="text-lg font-semibold">{franchise.region}</p>
+                <p className="text-sm font-medium text-gray-500">Location</p>
+                <p className="text-lg font-semibold">{franchise.region || `${franchise.city}, ${franchise.state}`}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Status</p>
                 <Badge className={
-                  franchise.agreementStatus === 'accepted' 
+                  franchise.status === 'ACTIVE' 
                     ? 'bg-green-100 text-green-800 border-green-200'
                     : 'bg-yellow-100 text-yellow-800 border-yellow-200'
                 }>
-                  {franchise.agreementStatus === 'accepted' ? 'Active' : 'Pending Agreement'}
+                  {franchise.status === 'ACTIVE' ? 'Active' : 'Pending Agreement'}
                 </Badge>
               </div>
             </div>
