@@ -210,6 +210,21 @@ export const camps = pgTable("camps", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Camp enrollments - links specific students to camps
+export const campEnrollments = pgTable("camp_enrollments", {
+  id: serial("id").primaryKey(),
+  campId: integer("camp_id").notNull(), // FK to camps
+  studentEntityId: integer("student_entity_id").notNull(), // FK to entities where type=STUDENT
+  enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
+  enrolledBy: integer("enrolled_by").notNull(), // FK to users
+  status: text("status").notNull().default("ENROLLED"), // ENROLLED, DROPPED, COMPLETED
+}, (table) => ({
+  campIdx: index("camp_enrollments_camp_idx").on(table.campId),
+  studentIdx: index("camp_enrollments_student_idx").on(table.studentEntityId),
+  // Prevent duplicate enrollments
+  campStudentUnique: unique("camp_student_unique").on(table.campId, table.studentEntityId),
+}));
+
 // Dental screenings table
 export const screenings = pgTable("screenings", {
   id: serial("id").primaryKey(),
@@ -297,6 +312,7 @@ export const insertAgreementAcceptanceSchema = createInsertSchema(agreementAccep
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true });
 export const insertMagicTokenSchema = createInsertSchema(magicTokens).omit({ id: true, createdAt: true });
 export const insertCampSchema = createInsertSchema(camps).omit({ id: true, createdAt: true });
+export const insertCampEnrollmentSchema = createInsertSchema(campEnrollments).omit({ id: true, enrolledAt: true });
 export const insertScreeningSchema = createInsertSchema(screenings).omit({ id: true, createdAt: true, completedAt: true });
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, createdAt: true });
 
@@ -353,6 +369,8 @@ export type MagicToken = typeof magicTokens.$inferSelect;
 export type InsertMagicToken = z.infer<typeof insertMagicTokenSchema>;
 export type Camp = typeof camps.$inferSelect;
 export type InsertCamp = z.infer<typeof insertCampSchema>;
+export type CampEnrollment = typeof campEnrollments.$inferSelect;
+export type InsertCampEnrollment = z.infer<typeof insertCampEnrollmentSchema>;
 export type Screening = typeof screenings.$inferSelect;
 export type InsertScreening = z.infer<typeof insertScreeningSchema>;
 export type Report = typeof reports.$inferSelect;
