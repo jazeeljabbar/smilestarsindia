@@ -758,11 +758,33 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
       return res.status(404).json({ error: 'User not found' });
     }
     
+    // Check if username is being updated and prevent it
+    if (username !== undefined) {
+      return res.status(400).json({ 
+        error: 'Username cannot be updated',
+        message: 'Username updates are not allowed. You can update other fields like email, name, and password.' 
+      });
+    }
+    
     // Prepare user updates
     const userUpdates: any = {
       name: name || existingUser.name,
-      email: email || existingUser.email,
     };
+    
+    // Handle email update with duplicate check
+    if (email && email !== existingUser.email) {
+      // Check if email is already taken by another user
+      const existingEmailUser = await storage.getUserByEmail(email);
+      if (existingEmailUser && existingEmailUser.id !== userId) {
+        return res.status(400).json({ 
+          error: 'Email already exists',
+          message: `The email address '${email}' is already registered to another user. Please use a different email address.`
+        });
+      }
+      userUpdates.email = email;
+    } else {
+      userUpdates.email = existingUser.email;
+    }
     
     // Hash and update password if provided
     if (password && password.trim()) {
