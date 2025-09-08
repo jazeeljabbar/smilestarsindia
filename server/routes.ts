@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import nodemailer from 'nodemailer';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
 import { storage } from "./storage";
 import { 
   magicLinkRequestSchema, magicLinkConsumeSchema, acceptAgreementsSchema,
@@ -23,6 +25,26 @@ interface AuthenticatedRequest extends Request {
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel and CSV files are allowed'));
+    }
+  }
+});
 
 // Gmail Email setup
 let mailTransporter: nodemailer.Transporter | null = null;
@@ -234,6 +256,348 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
   } catch (error) {
     console.error('Student registration error:', error);
     res.status(500).json({ error: 'Failed to register student' });
+  }
+});
+
+// Download student template Excel file
+router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Create template data structure
+    const templateData = [
+      {
+        'Student Name': 'John Doe',
+        'Age': 12,
+        'Gender': 'MALE',
+        'Grade': '7th Grade',
+        'Roll Number': 'ST001',
+        'Camp ID': 1,
+        'Parent 1 Name': 'Jane Doe',
+        'Parent 1 Email': 'jane@example.com',
+        'Parent 1 Phone': '+91-9876543210',
+        'Parent 1 Relationship': 'MOTHER',
+        'Parent 1 Occupation': 'Doctor',
+        'Parent 1 Has Custody': 'TRUE',
+        'Parent 1 Can Pickup': 'TRUE',
+        'Parent 1 Emergency Contact': 'TRUE',
+        'Parent 1 Medical Decisions': 'TRUE',
+        'Parent 2 Name': 'John Doe Sr',
+        'Parent 2 Email': 'john@example.com',
+        'Parent 2 Phone': '+91-9876543211',
+        'Parent 2 Relationship': 'FATHER',
+        'Parent 2 Occupation': 'Engineer',
+        'Parent 2 Has Custody': 'TRUE',
+        'Parent 2 Can Pickup': 'TRUE',
+        'Parent 2 Emergency Contact': 'FALSE',
+        'Parent 2 Medical Decisions': 'FALSE'
+      }
+    ];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(templateData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 20 }, // Student Name
+      { wch: 5 },  // Age
+      { wch: 8 },  // Gender
+      { wch: 15 }, // Grade
+      { wch: 12 }, // Roll Number
+      { wch: 8 },  // Camp ID
+      { wch: 20 }, // Parent 1 Name
+      { wch: 25 }, // Parent 1 Email
+      { wch: 15 }, // Parent 1 Phone
+      { wch: 12 }, // Parent 1 Relationship
+      { wch: 15 }, // Parent 1 Occupation
+      { wch: 12 }, // Parent 1 Has Custody
+      { wch: 12 }, // Parent 1 Can Pickup
+      { wch: 15 }, // Parent 1 Emergency Contact
+      { wch: 15 }, // Parent 1 Medical Decisions
+      { wch: 20 }, // Parent 2 Name
+      { wch: 25 }, // Parent 2 Email
+      { wch: 15 }, // Parent 2 Phone
+      { wch: 12 }, // Parent 2 Relationship
+      { wch: 15 }, // Parent 2 Occupation
+      { wch: 12 }, // Parent 2 Has Custody
+      { wch: 12 }, // Parent 2 Can Pickup
+      { wch: 15 }, // Parent 2 Emergency Contact
+      { wch: 15 }  // Parent 2 Medical Decisions
+    ];
+    ws['!cols'] = colWidths;
+
+    // Add sheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Students');
+
+    // Generate buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set headers and send file
+    res.setHeader('Content-Disposition', 'attachment; filename=student_upload_template.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Template download error:', error);
+    res.status(500).json({ error: 'Failed to generate template' });
+  }
+});
+
+// Bulk upload students with preview
+router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { preview } = req.body; // If preview=true, only return preview data
+    
+    // Parse Excel file
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!jsonData.length) {
+      return res.status(400).json({ error: 'Excel file is empty' });
+    }
+
+    // Get current user's school context for automatic school assignment
+    const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+    const schoolMembership = userMemberships.find(m => m.role === 'SCHOOL_ADMIN');
+    let defaultSchoolId = null;
+
+    if (schoolMembership) {
+      defaultSchoolId = schoolMembership.entityId;
+    }
+
+    // Transform and validate data
+    const students: any[] = [];
+    const errors: any[] = [];
+
+    for (let i = 0; i < jsonData.length; i++) {
+      const row: any = jsonData[i];
+      try {
+        // Extract student data
+        const studentData = {
+          name: row['Student Name']?.toString().trim(),
+          age: parseInt(row['Age']) || 0,
+          gender: row['Gender']?.toString().toUpperCase(),
+          grade: row['Grade']?.toString().trim(),
+          rollNumber: row['Roll Number']?.toString().trim(),
+          schoolId: defaultSchoolId, // Use user's school context
+          campId: parseInt(row['Camp ID']) || 0,
+          parents: []
+        };
+
+        // Extract up to 2 parents
+        for (let p = 1; p <= 2; p++) {
+          const parentName = row[`Parent ${p} Name`]?.toString().trim();
+          if (parentName) {
+            const parent = {
+              name: parentName,
+              email: row[`Parent ${p} Email`]?.toString().trim(),
+              phone: row[`Parent ${p} Phone`]?.toString().trim(),
+              relationship: row[`Parent ${p} Relationship`]?.toString().toUpperCase() || 'OTHER',
+              occupation: row[`Parent ${p} Occupation`]?.toString().trim() || '',
+              hasCustody: row[`Parent ${p} Has Custody`]?.toString().toUpperCase() === 'TRUE',
+              canPickup: row[`Parent ${p} Can Pickup`]?.toString().toUpperCase() === 'TRUE',
+              emergencyContact: row[`Parent ${p} Emergency Contact`]?.toString().toUpperCase() === 'TRUE',
+              medicalDecisions: row[`Parent ${p} Medical Decisions`]?.toString().toUpperCase() === 'TRUE'
+            };
+            studentData.parents.push(parent);
+          }
+        }
+
+        // Basic validation
+        if (!studentData.name || !studentData.age || !studentData.gender || !studentData.grade || 
+            !studentData.rollNumber || !studentData.campId || studentData.parents.length === 0) {
+          errors.push({
+            row: i + 2, // Excel row number (header is row 1)
+            error: 'Missing required fields',
+            data: studentData
+          });
+          continue;
+        }
+
+        students.push({
+          ...studentData,
+          rowNumber: i + 2
+        });
+
+      } catch (error) {
+        errors.push({
+          row: i + 2,
+          error: 'Data parsing error: ' + (error as Error).message,
+          data: row
+        });
+      }
+    }
+
+    // If preview mode, return first 10 records and summary
+    if (preview === 'true') {
+      return res.json({
+        preview: students.slice(0, 10),
+        totalRecords: students.length,
+        errors: errors.slice(0, 10),
+        totalErrors: errors.length,
+        schoolId: defaultSchoolId
+      });
+    }
+
+    // Full processing mode - check for duplicates and create students
+    if (students.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid student records found',
+        errors 
+      });
+    }
+
+    // Check for duplicates within the upload
+    const duplicatesInFile: any[] = [];
+    const seen = new Set();
+    students.forEach((student, index) => {
+      const key = `${student.name.toLowerCase()}-${student.rollNumber}`;
+      if (seen.has(key)) {
+        duplicatesInFile.push({
+          row: student.rowNumber,
+          error: 'Duplicate in file',
+          student: student.name
+        });
+      }
+      seen.add(key);
+    });
+
+    // Check for duplicates in database
+    const existingStudents = defaultSchoolId ? await storage.getStudentsBySchool(defaultSchoolId) : [];
+    const duplicatesInDB: any[] = [];
+    
+    students.forEach(student => {
+      const duplicate = existingStudents.find(existing => 
+        existing.name.toLowerCase() === student.name.toLowerCase() ||
+        (existing.metadata?.rollNumber && existing.metadata.rollNumber === student.rollNumber)
+      );
+      if (duplicate) {
+        duplicatesInDB.push({
+          row: student.rowNumber,
+          error: 'Already exists in database',
+          student: student.name,
+          existing: duplicate.name
+        });
+      }
+    });
+
+    // If there are any duplicates or errors, return them
+    if (duplicatesInFile.length > 0 || duplicatesInDB.length > 0 || errors.length > 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        duplicatesInFile,
+        duplicatesInDB,
+        errors,
+        totalRecords: students.length
+      });
+    }
+
+    // Process all students
+    const results: any[] = [];
+    for (const studentData of students) {
+      try {
+        // Create student using the same logic as individual registration
+        const student = await storage.createEntity({
+          type: 'STUDENT',
+          name: studentData.name,
+          status: 'ACTIVE',
+          parentId: studentData.schoolId,
+          metadata: {
+            age: studentData.age,
+            gender: studentData.gender,
+            grade: studentData.grade,
+            rollNumber: studentData.rollNumber,
+            campId: studentData.campId,
+          }
+        });
+
+        // Process parents
+        const parentUsers = [];
+        for (const parentData of studentData.parents) {
+          let parentUser = await storage.getUserByEmail(parentData.email);
+          
+          if (!parentUser) {
+            parentUser = await storage.createUser({
+              email: parentData.email,
+              name: parentData.name,
+              phone: parentData.phone,
+              status: 'ACTIVE'
+            });
+
+            await storage.createMembership({
+              userId: parentUser.id,
+              entityId: studentData.schoolId,
+              role: 'PARENT',
+              isPrimary: false
+            });
+          }
+
+          await storage.createParentStudentLink({
+            parentUserId: parentUser.id,
+            studentEntityId: student.id,
+            relationship: parentData.relationship,
+            custodyFlags: {
+              hasCustody: parentData.hasCustody,
+              canPickup: parentData.canPickup,
+              emergencyContact: parentData.emergencyContact,
+              medicalDecisions: parentData.medicalDecisions,
+            }
+          });
+
+          parentUsers.push({
+            id: parentUser.id,
+            name: parentUser.name,
+            email: parentUser.email,
+            relationship: parentData.relationship
+          });
+        }
+
+        results.push({
+          student: {
+            id: student.id,
+            name: student.name,
+            rollNumber: studentData.rollNumber
+          },
+          parents: parentUsers,
+          row: studentData.rowNumber
+        });
+
+      } catch (error) {
+        results.push({
+          error: 'Failed to create: ' + (error as Error).message,
+          row: studentData.rowNumber,
+          student: studentData.name
+        });
+      }
+    }
+
+    // Log the bulk action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'BULK_CREATE_STUDENTS',
+      entityId: defaultSchoolId || 0,
+      metadata: { 
+        totalUploaded: results.filter(r => !r.error).length,
+        totalFailed: results.filter(r => r.error).length,
+        filename: req.file.originalname
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully processed ${results.filter(r => !r.error).length} out of ${results.length} students`,
+      results,
+      schoolId: defaultSchoolId
+    });
+
+  } catch (error) {
+    console.error('Bulk upload error:', error);
+    res.status(500).json({ error: 'Failed to process bulk upload' });
   }
 });
 
