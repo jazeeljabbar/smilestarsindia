@@ -2522,9 +2522,18 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
       filteredStudents = students;
     } else {
       // Other roles (franchise admin, school admin, etc.) see students based on entity access
-      filteredStudents = students.filter(entity => {
-        return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
-      });
+      if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+        // Franchise admins see students from all schools under their franchisee
+        const allSchools = await storage.getEntitiesByType('SCHOOL');
+        const franchiseeSchools = allSchools.filter(school => accessibleEntityIds.includes(school.parentId || 0));
+        const franchiseeSchoolIds = franchiseeSchools.map(school => school.id);
+        filteredStudents = students.filter(student => franchiseeSchoolIds.includes(student.parentId || 0));
+      } else {
+        // School admins and other roles see students based on direct entity access
+        filteredStudents = students.filter(entity => {
+          return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+        });
+      }
     }
 
     // Apply additional filters
