@@ -2246,6 +2246,12 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
         return userEntityIds.includes(school.parentId || 0);
       }
       
+      // For school admins, show only schools they are assigned to
+      if (req.user!.roles.includes('SCHOOL_ADMIN')) {
+        const accessibleEntityIds = req.user!.entityIds || [];
+        return accessibleEntityIds.includes(school.id);
+      }
+      
       // For other roles, allow access based on direct entity membership
       const accessibleEntityIds = req.user!.entityIds || [];
       return accessibleEntityIds.includes(school.id) || accessibleEntityIds.includes(school.parentId || 0);

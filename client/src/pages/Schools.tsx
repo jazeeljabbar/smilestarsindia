@@ -124,7 +124,6 @@ export function Schools() {
       if (user?.roles?.includes('FRANCHISE_ADMIN')) {
         const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
         defaultFranchiseId = franchiseeMembership?.entityId || activeMembership?.entityId;
-        console.log('Setting default franchiseId for form:', defaultFranchiseId);
       }
       
       form.reset({
@@ -148,9 +147,8 @@ export function Schools() {
   const createSchoolMutation = useMutation({
     mutationFn: (schoolData: SchoolFormData) => {
       if (editingSchool) {
-        // Update existing school
-        const entityData = {
-          ...editingSchool,
+        // Update existing school - only send changed fields
+        const updateData = {
           name: schoolData.name,
           status: schoolData.isActive ? 'ACTIVE' : 'INACTIVE',
           metadata: {
@@ -176,7 +174,7 @@ export function Schools() {
         return apiRequest(`/schools/${editingSchool.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entityData),
+          body: JSON.stringify(updateData),
         });
       } else {
         // Create new school using dedicated schools endpoint
@@ -259,14 +257,6 @@ export function Schools() {
   });
 
   const onSubmit = (data: SchoolFormData) => {
-    console.log('=== FORM SUBMISSION DEBUG ===');
-    console.log('Form submission data:', data);
-    console.log('User object:', user);
-    console.log('User memberships:', user?.memberships);
-    console.log('User roles:', user?.roles);
-    console.log('Selected franchiseId:', data.franchiseId);
-    console.log('activeMembership:', activeMembership);
-    
     // For franchise admins, always ensure franchiseId is set from their membership
     let franchiseId = data.franchiseId;
     
@@ -274,21 +264,15 @@ export function Schools() {
       if (!franchiseId) {
         // Try different ways to get the franchise ID
         const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
-        console.log('Found franchise membership:', franchiseeMembership);
         
         if (franchiseeMembership?.entityId) {
           franchiseId = franchiseeMembership.entityId;
-          console.log('Using membership entityId:', franchiseId);
         } else if (activeMembership?.entityId && activeMembership?.role === 'FRANCHISE_ADMIN') {
           franchiseId = activeMembership.entityId;
-          console.log('Using activeMembership entityId:', franchiseId);
         }
       }
       
       if (!franchiseId) {
-        console.error('Could not determine franchise ID for franchise admin');
-        console.error('User memberships:', user?.memberships);
-        console.error('Active membership:', activeMembership);
         toast({
           title: 'Error',
           description: 'Unable to determine your franchisee. Please contact support.',
@@ -296,9 +280,6 @@ export function Schools() {
         });
         return;
       }
-      
-      // Force set the franchiseId for franchise admins
-      console.log('Final franchiseId for franchise admin:', franchiseId);
     }
     
     if (!franchiseId) {
@@ -312,8 +293,6 @@ export function Schools() {
     
     // Update the form data with the correct franchise ID
     const updatedData = { ...data, franchiseId };
-    console.log('Final form data with franchiseId:', updatedData);
-    
     createSchoolMutation.mutate(updatedData);
   };
 
