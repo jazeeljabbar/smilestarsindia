@@ -926,7 +926,119 @@ export function Students() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Advanced Filters for Admin Users */}
+      {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN') || userRoles.includes('FRANCHISE_ADMIN')) && (
+        <div className="bg-gray-50 p-4 rounded-lg border mb-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Filters & View Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Franchisee Filter - Only for System/Org Admins */}
+            {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Franchisee</label>
+                <select
+                  value={filterFranchiseeId || '0'}
+                  onChange={(e) => {
+                    const franchiseeId = e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null;
+                    setFilterFranchiseeId(franchiseeId);
+                    setFilterSchoolId(null); // Reset school filter
+                    setCurrentPage(1); // Reset to first page
+                  }}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="0">All Franchisees</option>
+                  {(franchisees as any[]).map((franchisee: any) => (
+                    <option key={franchisee.id} value={franchisee.id.toString()}>
+                      {franchisee.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* School Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
+              <select
+                value={filterSchoolId || '0'}
+                onChange={(e) => {
+                  const schoolId = e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null;
+                  setFilterSchoolId(schoolId);
+                  setCurrentPage(1); // Reset to first page
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="0">All Schools</option>
+                {availableSchools.map((school: any) => (
+                  <option key={school.id} value={school.id.toString()}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Camp Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Camp</label>
+              <select
+                value={selectedCamp}
+                onChange={(e) => {
+                  setSelectedCamp(e.target.value);
+                  setCurrentPage(1); // Reset to first page
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="all">All Camps</option>
+                {camps.map((camp: any) => (
+                  <option key={camp.id} value={camp.id.toString()}>
+                    {camp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Page Size Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Results per page</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(parseInt(e.target.value));
+                  setCurrentPage(1); // Reset to first page
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="10">10 per page</option>
+                <option value="20">20 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters & Results Summary */}
+          <div className="mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilterFranchiseeId(null);
+                setFilterSchoolId(null);
+                setSelectedCamp('all');
+                setCurrentPage(1);
+              }}
+              size="sm"
+            >
+              Clear All Filters
+            </Button>
+            
+            {/* Results Summary */}
+            <div className="text-sm text-gray-600">
+              Showing {students.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} - {Math.min(currentPage * pageSize, totalStudents)} of {totalStudents} students
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Basic Search */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <div className="relative">
@@ -939,19 +1051,6 @@ export function Students() {
             />
           </div>
         </div>
-        <Select value={selectedCamp} onValueChange={setSelectedCamp}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Filter by camp" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Camps</SelectItem>
-            {camps.map((camp: any) => (
-              <SelectItem key={camp.id} value={camp.id.toString()}>
-                {camp.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Stats */}
@@ -1118,6 +1217,83 @@ export function Students() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border rounded-lg">
+          <div className="flex items-center text-sm text-gray-700">
+            <span>
+              Showing {students.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} to{' '}
+              {Math.min(currentPage * pageSize, totalStudents)} of {totalStudents} students
+            </span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
 
       {filteredStudents.length === 0 && (
         <Card className="text-center py-12">
