@@ -100,7 +100,7 @@ export function Schools() {
     },
   });
 
-  // Reset form when editing school changes
+  // Reset form when editing school changes or user data loads
   useEffect(() => {
     if (editingSchool) {
       form.reset({
@@ -119,6 +119,14 @@ export function Schools() {
         isActive: editingSchool.isActive ?? true,
       });
     } else {
+      // Get franchisee ID for franchise admin users
+      let defaultFranchiseId = undefined;
+      if (user?.roles?.includes('FRANCHISE_ADMIN')) {
+        const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
+        defaultFranchiseId = franchiseeMembership?.entityId || activeMembership?.entityId;
+        console.log('Setting default franchiseId for form:', defaultFranchiseId);
+      }
+      
       form.reset({
         name: '',
         address: '',
@@ -129,14 +137,13 @@ export function Schools() {
         contactPhone: '',
         contactEmail: '',
         registrationNumber: '',
-        franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? 
-          user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN')?.entityId : undefined,
+        franchiseId: defaultFranchiseId,
         hasSubBranches: false,
         parentSchoolId: undefined,
         isActive: true,
       });
     }
-  }, [editingSchool, form, franchisees, user?.roles]);
+  }, [editingSchool, form, user?.roles, user?.memberships, activeMembership]);
 
   const createSchoolMutation = useMutation({
     mutationFn: (schoolData: SchoolFormData) => {
@@ -255,7 +262,7 @@ export function Schools() {
     console.log('Selected franchiseId:', data.franchiseId);
     console.log('activeMembership:', activeMembership);
     
-    // Multiple ways to detect franchise ID for franchise admins
+    // For franchise admins, always ensure franchiseId is set from their membership
     let franchiseId = data.franchiseId;
     
     if (user?.roles?.includes('FRANCHISE_ADMIN')) {
@@ -275,6 +282,8 @@ export function Schools() {
       
       if (!franchiseId) {
         console.error('Could not determine franchise ID for franchise admin');
+        console.error('User memberships:', user?.memberships);
+        console.error('Active membership:', activeMembership);
         toast({
           title: 'Error',
           description: 'Unable to determine your franchisee. Please contact support.',
@@ -282,6 +291,9 @@ export function Schools() {
         });
         return;
       }
+      
+      // Force set the franchiseId for franchise admins
+      console.log('Final franchiseId for franchise admin:', franchiseId);
     }
     
     if (!franchiseId) {
