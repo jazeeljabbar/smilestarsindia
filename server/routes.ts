@@ -2413,6 +2413,119 @@ router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADM
   }
 });
 
+// PUT /api/schools/:id - update SCHOOL entity
+router.put('/schools/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityId = parseInt(req.params.id);
+    const entityData = {
+      ...req.body,
+      type: 'SCHOOL' as const,
+    };
+    
+    // Check if school exists
+    const existingSchool = await storage.getEntityById(entityId);
+    if (!existingSchool || existingSchool.type !== 'SCHOOL') {
+      return res.status(404).json({ error: 'School not found' });
+    }
+    
+    // For franchise admins, ensure they can only update schools under their franchise
+    if (req.user!.roles.includes('FRANCHISE_ADMIN') && !req.user!.roles.includes('SYSTEM_ADMIN') && !req.user!.roles.includes('ORG_ADMIN')) {
+      const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+      const franchiseeMembership = userMemberships.find(m => m.role === 'FRANCHISE_ADMIN');
+      
+      if (!franchiseeMembership || existingSchool.parentId !== franchiseeMembership.entityId) {
+        return res.status(403).json({ error: 'Access denied. You can only update schools under your franchise.' });
+      }
+    }
+    
+    const entity = await storage.updateEntity(entityId, entityData);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'UPDATE_ENTITY',
+      entityId: entity.id,
+      metadata: { entityType: entity.type, entityName: entity.name }
+    });
+
+    res.json({ message: 'School updated successfully', entity });
+  } catch (error) {
+    console.error('Update school error:', error);
+    res.status(500).json({ error: 'Failed to update school' });
+  }
+});
+
+// DELETE /api/schools/:id - delete SCHOOL entity
+router.delete('/schools/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityId = parseInt(req.params.id);
+    
+    // Check if school exists
+    const entity = await storage.getEntityById(entityId);
+    if (!entity || entity.type !== 'SCHOOL') {
+      return res.status(404).json({ error: 'School not found' });
+    }
+    
+    // Check if school has any students before deleting
+    const students = await storage.getEntitiesByParent(entityId);
+    if (students.length > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete school. It has ${students.length} student(s) associated with it. Please reassign or delete the students first.` 
+      });
+    }
+    
+    // Get all memberships for this entity to find associated users
+    const memberships = await storage.getMembershipsByEntity(entityId);
+    const associatedUserIds = memberships.map(m => m.userId);
+    
+    // Delete all memberships for this entity
+    for (const membership of memberships) {
+      await storage.deleteMembership(membership.id);
+    }
+    
+    // For each user, check if they have other memberships
+    // If not, delete the user completely (for users created specifically for this school)
+    const usersToDelete = [];
+    for (const userId of associatedUserIds) {
+      const userMemberships = await storage.getMembershipsByUser(userId);
+      if (userMemberships.length === 0) {
+        // User has no other memberships, safe to delete
+        usersToDelete.push(userId);
+      }
+    }
+    
+    // Delete users who have no other memberships
+    for (const userId of usersToDelete) {
+      await storage.deleteUser(userId);
+    }
+    
+    // Delete the school entity
+    await storage.deleteEntity(entityId);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'DELETE_ENTITY',
+      entityId: entityId,
+      metadata: { 
+        entityType: 'SCHOOL', 
+        entityName: entity.name,
+        deletedUsers: usersToDelete.length,
+        deletedMemberships: memberships.length
+      }
+    });
+
+    res.json({ 
+      message: 'School deleted successfully',
+      details: {
+        deletedUsers: usersToDelete.length,
+        deletedMemberships: memberships.length
+      }
+    });
+  } catch (error) {
+    console.error('Delete school error:', error);
+    res.status(500).json({ error: 'Failed to delete school' });
+  }
+});
+
 // GET /api/students - return STUDENT entities
 router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {

@@ -160,7 +160,7 @@ export function Schools() {
           }
         };
         
-        return apiRequest(`/entities/${editingSchool.id}`, {
+        return apiRequest(`/schools/${editingSchool.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entityData),
@@ -217,7 +217,7 @@ export function Schools() {
 
   const deleteSchoolMutation = useMutation({
     mutationFn: (schoolId: number) => {
-      return apiRequest(`/entities/${schoolId}`, {
+      return apiRequest(`/schools/${schoolId}`, {
         method: 'DELETE',
       });
     },
