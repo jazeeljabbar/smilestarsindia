@@ -247,20 +247,34 @@ export function Schools() {
   });
 
   const onSubmit = (data: SchoolFormData) => {
+    console.log('=== FORM SUBMISSION DEBUG ===');
     console.log('Form submission data:', data);
+    console.log('User object:', user);
     console.log('User memberships:', user?.memberships);
     console.log('User roles:', user?.roles);
     console.log('Selected franchiseId:', data.franchiseId);
+    console.log('activeMembership:', activeMembership);
     
-    // Ensure franchiseId is set for franchise admins
-    if (user?.roles?.includes('FRANCHISE_ADMIN') && !data.franchiseId) {
-      const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
-      console.log('Found franchise membership:', franchiseeMembership);
+    // Multiple ways to detect franchise ID for franchise admins
+    let franchiseId = data.franchiseId;
+    
+    if (user?.roles?.includes('FRANCHISE_ADMIN')) {
+      if (!franchiseId) {
+        // Try different ways to get the franchise ID
+        const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
+        console.log('Found franchise membership:', franchiseeMembership);
+        
+        if (franchiseeMembership?.entityId) {
+          franchiseId = franchiseeMembership.entityId;
+          console.log('Using membership entityId:', franchiseId);
+        } else if (activeMembership?.entityId && activeMembership?.role === 'FRANCHISE_ADMIN') {
+          franchiseId = activeMembership.entityId;
+          console.log('Using activeMembership entityId:', franchiseId);
+        }
+      }
       
-      if (franchiseeMembership?.entityId) {
-        data.franchiseId = franchiseeMembership.entityId;
-        console.log('Auto-setting franchiseId to:', data.franchiseId);
-      } else {
+      if (!franchiseId) {
+        console.error('Could not determine franchise ID for franchise admin');
         toast({
           title: 'Error',
           description: 'Unable to determine your franchisee. Please contact support.',
@@ -270,7 +284,7 @@ export function Schools() {
       }
     }
     
-    if (!data.franchiseId) {
+    if (!franchiseId) {
       toast({
         title: 'Error',
         description: 'Franchisee must be selected',
@@ -279,7 +293,11 @@ export function Schools() {
       return;
     }
     
-    createSchoolMutation.mutate(data);
+    // Update the form data with the correct franchise ID
+    const updatedData = { ...data, franchiseId };
+    console.log('Final form data with franchiseId:', updatedData);
+    
+    createSchoolMutation.mutate(updatedData);
   };
 
   const getStatusIcon = (status: string) => {
