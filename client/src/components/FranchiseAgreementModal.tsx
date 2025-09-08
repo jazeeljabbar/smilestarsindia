@@ -21,7 +21,7 @@ export function FranchiseAgreementModal({ isOpen, onClose }: FranchiseAgreementM
 
   const acceptAgreementMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/auth/accept-agreements', {
+      const response = await fetch('/api/auth/accept-agreements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
