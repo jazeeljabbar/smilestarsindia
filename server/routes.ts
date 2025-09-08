@@ -1417,7 +1417,7 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
 // POST /api/schools - create SCHOOL entity
 router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { metadata, ...entityData } = req.body;
+    const { metadata, parentId, ...entityData } = req.body;
     
     // Extract principal/contact person details from metadata
     const contactEmail = metadata?.principalEmail || metadata?.schoolContactEmail;
@@ -1427,11 +1427,36 @@ router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADM
       return res.status(400).json({ error: 'Principal email and name are required' });
     }
     
+    // BUSINESS RULE: Every school must belong to exactly one franchise
+    if (!parentId) {
+      return res.status(400).json({ error: 'School must be assigned to a franchise (parentId required)' });
+    }
+    
+    // Verify the parentId is a valid FRANCHISEE
+    const parentEntity = await storage.getEntityById(parentId);
+    if (!parentEntity || parentEntity.type !== 'FRANCHISEE') {
+      return res.status(400).json({ error: 'Parent entity must be a valid franchise' });
+    }
+    
+    // Check if school with same name already exists under ANY franchise
+    const existingSchools = await storage.getEntitiesByType('SCHOOL');
+    const duplicateSchool = existingSchools.find(school => 
+      school.name.toLowerCase() === entityData.name.toLowerCase()
+    );
+    
+    if (duplicateSchool) {
+      return res.status(400).json({ 
+        error: 'School name already exists', 
+        message: `A school named "${entityData.name}" already exists under another franchise. Each school can only belong to one franchise.`
+      });
+    }
+    
     // Create school entity in DRAFT status (will be ACTIVE after agreement acceptance)
     const schoolData = {
       ...entityData,
       type: 'SCHOOL' as const,
       status: 'DRAFT', // Start in draft status, will be activated after agreement
+      parentId, // Ensure school is properly assigned to franchise
       metadata
     };
     
