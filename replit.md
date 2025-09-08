@@ -114,7 +114,16 @@ Smile Stars India is a comprehensive web application designed to streamline prev
 - Drizzle migrations for version control
 - Connection pooling via Neon serverless
 
+## Test Account Details
+
+### System Administrator Account
+- **Email:** admin@smilestarsindia.com
+- **Password:** admin123
+- **Role:** SYSTEM_ADMIN
+- **Access:** Full system access, can manage all entities and users
+
 ## Changelog
+- September 08, 2025. Updated admin credentials and fixed authentication
 - July 04, 2025. Initial setup
 
 ## User Preferences
