@@ -76,6 +76,12 @@ export function Students() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedFranchiseeId, setSelectedFranchiseeId] = useState<number | null>(null);
   const [selectedBulkSchoolId, setSelectedBulkSchoolId] = useState<number | null>(null);
+  
+  // Advanced filtering for admin users
+  const [filterFranchiseeId, setFilterFranchiseeId] = useState<number | null>(null);
+  const [filterSchoolId, setFilterSchoolId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<any>(null);
   const [uploadStep, setUploadStep] = useState<'select' | 'uploading' | 'complete'>('select');
@@ -214,13 +220,29 @@ export function Students() {
     }
   });
 
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ['/api/students', selectedCamp !== 'all' ? { campId: selectedCamp } : {}],
+  const { data: studentsResponse, isLoading: studentsLoading } = useQuery({
+    queryKey: ['/api/students', {
+      campId: selectedCamp !== 'all' ? selectedCamp : null,
+      franchiseeId: filterFranchiseeId,
+      schoolId: filterSchoolId,
+      page: currentPage,
+      pageSize: pageSize
+    }],
     queryFn: () => {
-      const params = selectedCamp !== 'all' ? `?campId=${selectedCamp}` : '';
-      return apiRequest(`/students${params}`);
+      const params = new URLSearchParams();
+      if (selectedCamp !== 'all') params.append('campId', selectedCamp);
+      if (filterFranchiseeId) params.append('franchiseeId', filterFranchiseeId.toString());
+      if (filterSchoolId) params.append('schoolId', filterSchoolId.toString());
+      params.append('page', currentPage.toString());
+      params.append('pageSize', pageSize.toString());
+      
+      return apiRequest(`/students?${params.toString()}`);
     },
   });
+
+  const students = studentsResponse?.students || [];
+  const totalStudents = studentsResponse?.total || 0;
+  const totalPages = Math.ceil(totalStudents / pageSize);
 
   const { data: camps = [], isLoading: campsLoading } = useQuery({
     queryKey: ['/api/camps'],
@@ -460,7 +482,7 @@ export function Students() {
                       {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
                         <FormField
                           control={form.control}
-                          name="franchiseeId"
+                          name={"franchiseeId" as any}
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Franchisee (Optional)</FormLabel>
