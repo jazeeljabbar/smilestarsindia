@@ -203,11 +203,11 @@ export function Franchisees() {
         }
       };
       
-      const response = await apiRequest(`/api/franchises/${id}`, {
+      const response = await apiRequest(`/franchises/${id}`, {
         method: 'PUT',
         body: JSON.stringify(entityData),
       });
-      return response.json();
+      return response; // apiRequest already returns parsed JSON
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
