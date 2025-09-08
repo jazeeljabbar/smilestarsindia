@@ -961,6 +961,65 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
   }
 });
 
+// PUT /api/franchises/:id - update FRANCHISEE entity
+router.put('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityId = parseInt(req.params.id);
+    const entityData = {
+      ...req.body,
+      type: 'FRANCHISEE' as const,
+    };
+    
+    const entity = await storage.updateEntity(entityId, entityData);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'UPDATE_ENTITY',
+      entityId: entity.id,
+      metadata: { entityType: entity.type, entityName: entity.name }
+    });
+
+    res.json({ message: 'Franchise updated successfully', entity });
+  } catch (error) {
+    console.error('Update franchise error:', error);
+    res.status(500).json({ error: 'Failed to update franchise' });
+  }
+});
+
+// DELETE /api/franchises/:id - delete FRANCHISEE entity
+router.delete('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const entityId = parseInt(req.params.id);
+    
+    // Check if franchise has any schools before deleting
+    const schools = await storage.getEntitiesByParentId(entityId);
+    if (schools.length > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete franchise. It has ${schools.length} school(s) associated with it. Please reassign or delete the schools first.` 
+      });
+    }
+    
+    const entity = await storage.getEntityById(entityId);
+    if (!entity) {
+      return res.status(404).json({ error: 'Franchise not found' });
+    }
+    
+    await storage.deleteEntity(entityId);
+    
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'DELETE_ENTITY',
+      entityId: entityId,
+      metadata: { entityType: 'FRANCHISEE', entityName: entity.name }
+    });
+
+    res.json({ message: 'Franchise deleted successfully' });
+  } catch (error) {
+    console.error('Delete franchise error:', error);
+    res.status(500).json({ error: 'Failed to delete franchise' });
+  }
+});
+
 // GET /api/schools - return SCHOOL entities
 router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
