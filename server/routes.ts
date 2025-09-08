@@ -293,33 +293,6 @@ router.post('/auth/magic-link/consume', async (req: Request, res: Response) => {
   }
 });
 
-// Accept agreements
-router.post('/auth/accept-agreements', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { agreementIds } = acceptAgreementsSchema.parse(req.body);
-    const userId = req.user!.id;
-    
-    // Create acceptance records
-    for (const agreementId of agreementIds) {
-      const agreement = await storage.getAgreementById(agreementId);
-      if (agreement) {
-        await storage.createAgreementAcceptance({
-          userId,
-          agreementId,
-          version: agreement.version,
-          acceptedAt: new Date(),
-          ip: req.ip,
-          userAgent: req.get('User-Agent') || null
-        });
-      }
-    }
-
-    res.json({ message: 'Agreements accepted successfully' });
-  } catch (error) {
-    console.error('Accept agreements error:', error);
-    res.status(500).json({ error: 'Failed to accept agreements' });
-  }
-});
 
 // Traditional password login (for existing users)
 router.post('/auth/login', async (req: Request, res: Response) => {
