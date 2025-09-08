@@ -24,6 +24,7 @@ export function Camps() {
   // Simple form state - no complex validation
   const [formData, setFormData] = useState({
     name: '',
+    franchiseeId: '',
     schoolId: '',
     startDate: '',
     endDate: '',
@@ -47,6 +48,27 @@ export function Camps() {
     queryKey: ['/api/schools/my-school'],
     queryFn: () => apiRequest('/schools/my-school'),
     enabled: activeRole === 'SCHOOL_ADMIN',
+  });
+
+  // Franchisees data for admin users
+  const { data: franchisees = [] } = useQuery({
+    queryKey: ['/api/franchisees/list'],
+    queryFn: () => apiRequest('/franchisees/list'),
+    enabled: activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN',
+  });
+
+  // Role-based schools data
+  const { data: availableSchools = [] } = useQuery({
+    queryKey: ['/api/schools/list', formData.franchiseeId],
+    queryFn: () => {
+      const params = formData.franchiseeId ? `?franchiseeId=${formData.franchiseeId}` : '';
+      return fetch(`/api/schools/list${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      }).then(res => res.json());
+    },
+    enabled: activeRole !== 'SCHOOL_ADMIN',
   });
 
   const createCampMutation = useMutation({
@@ -78,6 +100,7 @@ export function Camps() {
   const resetForm = () => {
     setFormData({
       name: '',
+      franchiseeId: '',
       schoolId: '',
       startDate: '',
       endDate: '',
@@ -220,19 +243,52 @@ export function Camps() {
                     />
                   </div>
 
-                  {/* School selection - only show for non-school admin roles */}
+                  {/* Franchisee selection - only for System/Org Admins */}
+                  {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="franchiseeId">Franchisee</Label>
+                      <Select 
+                        value={formData.franchiseeId} 
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select franchisee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {franchisees.map((franchisee: any) => (
+                            <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                              {franchisee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* School selection - show for admin and franchisee roles */}
                   {activeRole !== 'SCHOOL_ADMIN' && (
                     <div className="space-y-2">
                       <Label htmlFor="schoolId">School</Label>
                       <Select 
                         value={formData.schoolId} 
                         onValueChange={(value) => setFormData({ ...formData, schoolId: value })}
+                        disabled={
+                          (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId
+                        }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select school" />
+                          <SelectValue 
+                            placeholder={
+                              (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId
+                                ? "Select franchisee first" 
+                                : "Select school"
+                            } 
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          {schools
+                          {availableSchools
                             .filter((school: any) => school.agreementStatus === 'accepted')
                             .map((school: any) => (
                               <SelectItem key={school.id} value={school.id.toString()}>
