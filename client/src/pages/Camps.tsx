@@ -42,6 +42,13 @@ export function Camps() {
     queryFn: () => apiRequest('/schools'),
   });
 
+  // For school admins, get their specific school
+  const { data: mySchool } = useQuery({
+    queryKey: ['/api/schools/my-school'],
+    queryFn: () => apiRequest('/schools/my-school'),
+    enabled: activeRole === 'SCHOOL_ADMIN',
+  });
+
   const createCampMutation = useMutation({
     mutationFn: (campData: any) => {
       return apiRequest('/camps', {
@@ -83,8 +90,15 @@ export function Camps() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    let schoolId = formData.schoolId;
+    
+    // For school admins, automatically use their school
+    if (activeRole === 'SCHOOL_ADMIN' && mySchool) {
+      schoolId = mySchool.id.toString();
+    }
+    
     // Basic validation
-    if (!formData.name || !formData.schoolId || !formData.startDate || !formData.endDate || !formData.expectedStudents) {
+    if (!formData.name || !schoolId || !formData.startDate || !formData.endDate || !formData.expectedStudents) {
       toast({
         title: 'Validation Error',
         description: 'Please fill in all required fields',
@@ -93,20 +107,37 @@ export function Camps() {
       return;
     }
 
-    const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
-    if (acceptedSchools.length === 0) {
+    // Validate dates are in the future
+    const startDate = new Date(formData.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (startDate <= today) {
       toast({
-        title: 'No Schools Available',
-        description: 'No schools with accepted agreements found',
+        title: 'Invalid Date',
+        description: 'Camp start date must be in the future',
         variant: 'destructive',
       });
       return;
     }
 
+    // For admin/franchisee roles, check accepted schools
+    if (activeRole !== 'SCHOOL_ADMIN') {
+      const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
+      if (acceptedSchools.length === 0) {
+        toast({
+          title: 'No Schools Available',
+          description: 'No schools with accepted agreements found',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     // Prepare data for API
     const campData = {
       name: formData.name,
-      schoolId: parseInt(formData.schoolId),
+      schoolId: parseInt(schoolId),
       startDate: formData.startDate,
       endDate: formData.endDate,
       expectedStudents: parseInt(formData.expectedStudents),
@@ -162,7 +193,7 @@ export function Camps() {
             </div>
           )}
         </div>
-        {(user?.role === 'admin' || user?.role === 'franchisee') && (
+        {(user?.role === 'admin' || user?.role === 'franchisee' || activeRole === 'SCHOOL_ADMIN') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className={colorSchemes.camps.primary}>
@@ -189,27 +220,41 @@ export function Camps() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="schoolId">School</Label>
-                    <Select 
-                      value={formData.schoolId} 
-                      onValueChange={(value) => setFormData({ ...formData, schoolId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select school" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {schools
-                          .filter((school: any) => school.agreementStatus === 'accepted')
-                          .map((school: any) => (
-                            <SelectItem key={school.id} value={school.id.toString()}>
-                              {school.name} - {school.city}, {school.state}
-                            </SelectItem>
-                          ))
-                        }
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* School selection - only show for non-school admin roles */}
+                  {activeRole !== 'SCHOOL_ADMIN' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="schoolId">School</Label>
+                      <Select 
+                        value={formData.schoolId} 
+                        onValueChange={(value) => setFormData({ ...formData, schoolId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select school" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {schools
+                            .filter((school: any) => school.agreementStatus === 'accepted')
+                            .map((school: any) => (
+                              <SelectItem key={school.id} value={school.id.toString()}>
+                                {school.name} - {school.city}, {school.state}
+                              </SelectItem>
+                            ))
+                          }
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* For school admins, show their school info */}
+                  {activeRole === 'SCHOOL_ADMIN' && mySchool && (
+                    <div className="space-y-2">
+                      <Label>School</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-md">
+                        <p className="font-medium">{mySchool.name}</p>
+                        <p className="text-sm text-gray-600">{mySchool.city}, {mySchool.state}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="startDate">Start Date</Label>
