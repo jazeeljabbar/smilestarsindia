@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   activeRole: string | null;
+  activeMembership: any | null;
   login: (token: string, user: User) => void;
   logout: () => void;
   switchRole: (role: string) => void;
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [activeRole, setActiveRole] = useState<string | null>(localStorage.getItem('activeRole'));
+  const [activeMembership, setActiveMembership] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setToken(null);
     setActiveRole(null);
+    setActiveMembership(null);
     localStorage.removeItem('token');
     localStorage.removeItem('activeRole');
   };
@@ -98,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, activeRole, login, logout, switchRole, isLoading }}>
+    <AuthContext.Provider value={{ user, token, activeRole, activeMembership, login, logout, switchRole, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

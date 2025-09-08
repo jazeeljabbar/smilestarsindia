@@ -9,22 +9,27 @@ import { FranchiseAgreementModal } from '@/components/FranchiseAgreementModal';
 import { useState, useEffect } from 'react';
 
 export function FranchiseeDashboard() {
-  const { user, token } = useAuth();
+  const { user, token, activeRole } = useAuth();
   const [, setLocation] = useLocation();
   const [showAgreementModal, setShowAgreementModal] = useState(false);
 
-  // Fetch franchisee-specific data
-  const { data: franchise } = useQuery({
-    queryKey: ['/api/franchises/my-franchise'],
+  // Fetch all franchises and filter for current user's access
+  const { data: franchises = [] } = useQuery({
+    queryKey: ['/api/franchises'],
     queryFn: async () => {
-      const response = await fetch('/api/franchises/my-franchise', {
+      const response = await fetch('/api/franchises', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!response.ok) throw new Error('Failed to fetch franchise data');
       return response.json();
     },
-    enabled: !!user && user.role === 'franchisee',
+    enabled: !!user && activeRole === 'FRANCHISE_ADMIN',
   });
+
+  // Get the active franchise based on user's current role context
+  // For now, we'll use the first franchise the user has access to
+  // In the future, this could be enhanced to track which franchise corresponds to the active role
+  const franchise = franchises.length > 0 ? franchises[0] : null;
 
   // Show agreement modal on first login if not accepted
   useEffect(() => {
@@ -116,6 +121,14 @@ export function FranchiseeDashboard() {
             <p className="text-blue-100">
               {franchise ? `Managing ${franchise.name} - ${franchise.region}` : 'Franchisee Dashboard'}
             </p>
+            {franchise && (
+              <div className="mt-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {franchise.name}
+                </span>
+              </div>
+            )}
           </div>
           <Building2 className="h-12 w-12 text-blue-200" />
         </div>
