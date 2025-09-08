@@ -37,6 +37,8 @@ const editUserFormSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
   roles: z.array(z.enum(['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT'])).min(1, 'At least one role is required'),
+  // Password field for admin password changes
+  password: z.string().optional(),
   // Entity associations based on roles
   franchiseeId: z.number().optional(),
   schoolId: z.number().optional(),
@@ -128,6 +130,7 @@ export function Users() {
       email: '',
       name: '',
       roles: [],
+      password: '',
       franchiseeId: undefined,
       schoolId: undefined,
       studentIds: [],
@@ -256,6 +259,7 @@ export function Users() {
       email: user.email,
       name: user.name,
       roles: (user as any).roles || [],
+      password: '', // Leave password empty - only set if admin wants to change it
       franchiseeId: (user as any).memberships?.find((m: any) => m.entityId && franchisees?.some((f: any) => f.id === m.entityId))?.entityId,
       schoolId: (user as any).memberships?.find((m: any) => m.entityId && schools?.some((s: any) => s.id === m.entityId))?.entityId,
     });
@@ -748,6 +752,23 @@ export function Users() {
                       <FormLabel>Full Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="Enter new password (leave empty to keep current)" 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

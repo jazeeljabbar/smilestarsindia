@@ -579,7 +579,7 @@ router.get('/users', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN'
 router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = parseInt(req.params.id);
-    const { name, email, username, roles, franchiseeId, schoolId } = req.body;
+    const { name, email, username, roles, franchiseeId, schoolId, password } = req.body;
     
     // Check if user exists
     const existingUser = await storage.getUserById(userId);
@@ -587,11 +587,20 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Update user basic info
-    const updatedUser = await storage.updateUser(userId, {
+    // Prepare user updates
+    const userUpdates: any = {
       name: name || existingUser.name,
       email: email || existingUser.email,
-    });
+    };
+    
+    // Hash and update password if provided
+    if (password && password.trim()) {
+      const bcrypt = require('bcrypt');
+      userUpdates.password = await bcrypt.hash(password.trim(), 10);
+    }
+    
+    // Update user basic info
+    const updatedUser = await storage.updateUser(userId, userUpdates);
     
     // Update user memberships if roles are provided
     if (roles && roles.length > 0) {
@@ -638,7 +647,8 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
       metadata: {
         updatedUserEmail: updatedUser.email,
         updatedUserName: updatedUser.name,
-        updatedRoles: roles?.join(', ') || 'No roles updated'
+        updatedRoles: roles?.join(', ') || 'No roles updated',
+        passwordChanged: password && password.trim() ? 'Yes' : 'No'
       }
     });
 
