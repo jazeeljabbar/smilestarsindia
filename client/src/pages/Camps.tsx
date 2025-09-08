@@ -54,7 +54,7 @@ export function Camps() {
   const { data: franchisees = [] } = useQuery({
     queryKey: ['/api/franchisees/list'],
     queryFn: () => apiRequest('/franchisees/list'),
-    enabled: activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN',
+    enabled: activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN' || activeRole === 'FRANCHISE_ADMIN',
   });
 
   // Role-based schools data
@@ -62,11 +62,7 @@ export function Camps() {
     queryKey: ['/api/schools/list', formData.franchiseeId],
     queryFn: () => {
       const params = formData.franchiseeId ? `?franchiseeId=${formData.franchiseeId}` : '';
-      return fetch(`/api/schools/list${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      }).then(res => res.json());
+      return apiRequest(`/schools/list${params}`);
     },
     enabled: activeRole !== 'SCHOOL_ADMIN',
   });
@@ -130,6 +126,16 @@ export function Camps() {
       return;
     }
 
+    // For admin users, validate franchisee selection
+    if ((activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a franchisee',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validate dates are in the future
     const startDate = new Date(formData.startDate);
     const today = new Date();
@@ -146,7 +152,7 @@ export function Camps() {
 
     // For admin/franchisee roles, check accepted schools
     if (activeRole !== 'SCHOOL_ADMIN') {
-      const acceptedSchools = schools.filter((school: any) => school.agreementStatus === 'accepted');
+      const acceptedSchools = availableSchools.filter((school: any) => school.agreementStatus === 'accepted');
       if (acceptedSchools.length === 0) {
         toast({
           title: 'No Schools Available',
@@ -243,27 +249,37 @@ export function Camps() {
                     />
                   </div>
 
-                  {/* Franchisee selection - only for System/Org Admins */}
-                  {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && (
+                  {/* Franchisee selection - show for System/Org/Franchise Admins */}
+                  {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN' || activeRole === 'FRANCHISE_ADMIN') && (
                     <div className="space-y-2">
                       <Label htmlFor="franchiseeId">Franchisee</Label>
-                      <Select 
-                        value={formData.franchiseeId} 
-                        onValueChange={(value) => {
-                          setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select franchisee" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {franchisees.map((franchisee: any) => (
-                            <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
-                              {franchisee.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {activeRole === 'FRANCHISE_ADMIN' ? (
+                        <div className="px-3 py-2 bg-gray-50 border rounded-md">
+                          <p className="font-medium">
+                            {franchisees.find((f: any) => 
+                              user?.memberships?.find((m: any) => m.entityId === f.id && m.role === 'FRANCHISE_ADMIN')
+                            )?.name || 'Your Franchisee'}
+                          </p>
+                        </div>
+                      ) : (
+                        <Select 
+                          value={formData.franchiseeId} 
+                          onValueChange={(value) => {
+                            setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select franchisee" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {franchisees.map((franchisee: any) => (
+                              <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                                {franchisee.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   )}
 

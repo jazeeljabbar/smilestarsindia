@@ -123,7 +123,7 @@ router.get('/entities/:type', authenticateToken, async (req: AuthenticatedReques
 });
 
 // Get franchisees for admin dropdown
-router.get('/franchisees/list', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/franchisees/list', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const franchisees = await storage.getEntitiesByType('FRANCHISEE');
     res.json(franchisees);
