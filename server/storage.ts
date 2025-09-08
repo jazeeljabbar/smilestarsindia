@@ -187,6 +187,14 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(memberships).where(eq(memberships.userId, userId));
   }
 
+  async deleteMembershipsByUser(userId: number): Promise<void> {
+    await db.delete(memberships).where(eq(memberships.userId, userId));
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+
   async getMembershipsByEntity(entityId: number): Promise<Membership[]> {
     return await db.select().from(memberships).where(eq(memberships.entityId, entityId));
   }

@@ -575,6 +575,44 @@ router.get('/users', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN'
   }
 });
 
+// Delete user
+router.delete('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    
+    // Check if user exists
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Prevent self-deletion
+    if (userId === req.user!.id) {
+      return res.status(400).json({ error: 'Cannot delete yourself' });
+    }
+    
+    // Delete user memberships first
+    await storage.deleteMembershipsByUser(userId);
+    
+    // Delete the user
+    await storage.deleteUser(userId);
+    
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'DELETE_USER',
+      targetId: userId,
+      targetType: 'USER',
+      metadata: { deletedUserEmail: user.email, deletedUserName: user.name }
+    });
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 // ===== DENTAL CAMP MANAGEMENT ROUTES =====
 
 // Get camps
