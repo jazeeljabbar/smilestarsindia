@@ -436,6 +436,44 @@ export function Students() {
                           </FormItem>
                         )}
                       />
+                      {/* Franchisee Selection - Only for System Admins */}
+                      {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+                        <FormField
+                          control={form.control}
+                          name="franchiseeId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Franchisee (Optional)</FormLabel>
+                              <Select
+                                value={field.value?.toString() || ''}
+                                onValueChange={(value) => {
+                                  const franchiseeId = value ? parseInt(value) : null;
+                                  field.onChange(franchiseeId);
+                                  setSelectedFranchiseeId(franchiseeId);
+                                  // Reset school selection when franchisee changes
+                                  form.setValue('schoolId', 0);
+                                }}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select franchisee (optional)" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="">All Franchisees</SelectItem>
+                                  {franchisees.map((franchisee: any) => (
+                                    <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                                      {franchisee.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
                       <FormField
                         control={form.control}
                         name="schoolId"
@@ -449,7 +487,7 @@ export function Students() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {schools.map((school: any) => (
+                                {availableSchools.map((school: any) => (
                                   <SelectItem key={school.id} value={school.id.toString()}>
                                     {school.name}
                                   </SelectItem>
