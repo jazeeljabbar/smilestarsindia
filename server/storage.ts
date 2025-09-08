@@ -2,10 +2,10 @@ import {
   User, InsertUser, Entity, InsertEntity, Membership, InsertMembership,
   ParentStudentLink, InsertParentStudentLink, Agreement, InsertAgreement,
   AgreementAcceptance, InsertAgreementAcceptance, AuditLog, InsertAuditLog,
-  MagicToken, InsertMagicToken, Camp, InsertCamp, Screening, InsertScreening,
-  Report, InsertReport,
+  MagicToken, InsertMagicToken, Camp, InsertCamp, CampEnrollment, InsertCampEnrollment,
+  Screening, InsertScreening, Report, InsertReport,
   users, entities, memberships, parentStudentLinks, agreements, agreementAcceptances,
-  auditLogs, magicTokens, camps, screenings, reports
+  auditLogs, magicTokens, camps, campEnrollments, screenings, reports
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, inArray, isNull, or } from "drizzle-orm";
@@ -74,6 +74,14 @@ export interface IStorage {
   getCampsBySchoolEntity(schoolEntityId: number): Promise<Camp[]>;
   getCampsByDentist(dentistUserId: number): Promise<Camp[]>;
   updateCamp(id: number, updates: Partial<InsertCamp>): Promise<Camp>;
+
+  // Camp Enrollments
+  createCampEnrollment(enrollment: InsertCampEnrollment): Promise<CampEnrollment>;
+  getCampEnrollmentsByCamp(campId: number): Promise<CampEnrollment[]>;
+  getCampEnrollmentsByStudent(studentEntityId: number): Promise<CampEnrollment[]>;
+  getEnrolledStudentsByCamp(campId: number): Promise<Entity[]>;
+  getAvailableStudentsForCamp(campId: number): Promise<Entity[]>;
+  deleteCampEnrollment(campId: number, studentEntityId: number): Promise<void>;
 
   // Screenings
   createScreening(screening: InsertScreening): Promise<Screening>;
@@ -373,6 +381,65 @@ export class DatabaseStorage implements IStorage {
       .where(eq(camps.id, id))
       .returning();
     return camp;
+  }
+
+  // Camp Enrollments
+  async createCampEnrollment(insertEnrollment: InsertCampEnrollment): Promise<CampEnrollment> {
+    const [enrollment] = await db
+      .insert(campEnrollments)
+      .values(insertEnrollment)
+      .returning();
+    return enrollment;
+  }
+
+  async getCampEnrollmentsByCamp(campId: number): Promise<CampEnrollment[]> {
+    return await db.select().from(campEnrollments).where(eq(campEnrollments.campId, campId));
+  }
+
+  async getCampEnrollmentsByStudent(studentEntityId: number): Promise<CampEnrollment[]> {
+    return await db.select().from(campEnrollments).where(eq(campEnrollments.studentEntityId, studentEntityId));
+  }
+
+  async getEnrolledStudentsByCamp(campId: number): Promise<Entity[]> {
+    const enrollments = await db
+      .select({
+        studentEntityId: campEnrollments.studentEntityId
+      })
+      .from(campEnrollments)
+      .where(eq(campEnrollments.campId, campId));
+    
+    if (enrollments.length === 0) return [];
+    
+    const studentIds = enrollments.map(e => e.studentEntityId);
+    return await db
+      .select()
+      .from(entities)
+      .where(inArray(entities.id, studentIds));
+  }
+
+  async getAvailableStudentsForCamp(campId: number): Promise<Entity[]> {
+    // Get the camp to find its school
+    const camp = await this.getCampById(campId);
+    if (!camp) return [];
+
+    // Get all students from the camp's school
+    const allSchoolStudents = await this.getStudentsBySchool(camp.schoolEntityId);
+
+    // Get already enrolled students
+    const enrolledStudents = await this.getEnrolledStudentsByCamp(campId);
+    const enrolledIds = enrolledStudents.map(s => s.id);
+
+    // Return students not yet enrolled
+    return allSchoolStudents.filter(student => !enrolledIds.includes(student.id));
+  }
+
+  async deleteCampEnrollment(campId: number, studentEntityId: number): Promise<void> {
+    await db
+      .delete(campEnrollments)
+      .where(and(
+        eq(campEnrollments.campId, campId),
+        eq(campEnrollments.studentEntityId, studentEntityId)
+      ));
   }
 
   // Screenings

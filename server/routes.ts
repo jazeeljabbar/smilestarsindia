@@ -1840,6 +1840,124 @@ router.post('/camps', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN
   }
 });
 
+// ===== CAMP ENROLLMENT ROUTES =====
+
+// Get enrolled students for a camp
+router.get('/camps/:id/enrollments', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const campId = parseInt(req.params.id);
+    const enrolledStudents = await storage.getEnrolledStudentsByCamp(campId);
+    
+    // Transform student data to include metadata fields at top level
+    const transformedStudents = enrolledStudents.map(student => ({
+      ...student,
+      age: student.metadata?.age || '',
+      gender: student.metadata?.gender || '',
+      grade: student.metadata?.grade || '',
+      rollNumber: student.metadata?.rollNumber || '',
+    }));
+    
+    res.json(transformedStudents);
+  } catch (error) {
+    console.error('Get camp enrollments error:', error);
+    res.status(500).json({ error: 'Failed to get camp enrollments' });
+  }
+});
+
+// Get available students for enrollment (from camp's school, not yet enrolled)
+router.get('/camps/:id/available-students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const campId = parseInt(req.params.id);
+    const availableStudents = await storage.getAvailableStudentsForCamp(campId);
+    
+    // Transform student data to include metadata fields at top level
+    const transformedStudents = availableStudents.map(student => ({
+      ...student,
+      age: student.metadata?.age || '',
+      gender: student.metadata?.gender || '',
+      grade: student.metadata?.grade || '',
+      rollNumber: student.metadata?.rollNumber || '',
+    }));
+    
+    res.json(transformedStudents);
+  } catch (error) {
+    console.error('Get available students error:', error);
+    res.status(500).json({ error: 'Failed to get available students' });
+  }
+});
+
+// Add students to camp enrollment
+router.post('/camps/:id/enrollments', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const campId = parseInt(req.params.id);
+    const { studentIds } = req.body;
+
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ error: 'Student IDs array is required' });
+    }
+
+    const enrollments = [];
+    for (const studentId of studentIds) {
+      try {
+        const enrollment = await storage.createCampEnrollment({
+          campId,
+          studentEntityId: studentId,
+          enrolledBy: req.user!.id,
+          status: 'ENROLLED'
+        });
+        enrollments.push(enrollment);
+      } catch (error) {
+        // Skip if already enrolled (duplicate constraint)
+        console.log(`Student ${studentId} already enrolled in camp ${campId}`);
+      }
+    }
+
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'ENROLL_STUDENTS_TO_CAMP',
+      entityId: campId,
+      metadata: { 
+        enrolledStudents: enrollments.length,
+        requestedStudents: studentIds.length 
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      enrolled: enrollments.length,
+      message: `Successfully enrolled ${enrollments.length} out of ${studentIds.length} students` 
+    });
+  } catch (error) {
+    console.error('Add camp enrollments error:', error);
+    res.status(500).json({ error: 'Failed to add camp enrollments' });
+  }
+});
+
+// Remove student from camp enrollment
+router.delete('/camps/:id/enrollments/:studentId', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const campId = parseInt(req.params.id);
+    const studentId = parseInt(req.params.studentId);
+
+    await storage.deleteCampEnrollment(campId, studentId);
+
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'REMOVE_STUDENT_FROM_CAMP',
+      entityId: campId,
+      targetId: studentId,
+      targetType: 'STUDENT'
+    });
+
+    res.json({ success: true, message: 'Student removed from camp successfully' });
+  } catch (error) {
+    console.error('Remove camp enrollment error:', error);
+    res.status(500).json({ error: 'Failed to remove student from camp' });
+  }
+});
+
 // ===== SCREENING ROUTES =====
 
 // Get screenings
