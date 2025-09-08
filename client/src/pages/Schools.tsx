@@ -92,7 +92,8 @@ export function Schools() {
       contactPhone: '',
       contactEmail: '',
       registrationNumber: '',
-      franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? franchisees.find((f: any) => f.metadata?.adminUserId === user.id)?.id : undefined,
+      franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? 
+        user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN')?.entityId : undefined,
       hasSubBranches: false,
       parentSchoolId: undefined,
       isActive: true,
@@ -165,10 +166,10 @@ export function Schools() {
           body: JSON.stringify(entityData),
         });
       } else {
-        // Create new school
-        const entityData = {
-          type: 'SCHOOL',
+        // Create new school using dedicated schools endpoint
+        const schoolData_payload = {
           name: schoolData.name,
+          type: 'SCHOOL',
           status: schoolData.isActive ? 'ACTIVE' : 'INACTIVE',
           parentId: schoolData.franchiseId,
           metadata: {
@@ -176,24 +177,27 @@ export function Schools() {
             city: schoolData.city,
             state: schoolData.state,
             pincode: schoolData.pincode,
-            contactPerson: schoolData.contactPerson,
-            contactPhone: schoolData.contactPhone,
-            contactEmail: schoolData.contactEmail,
+            principalName: schoolData.contactPerson,
+            principalEmail: schoolData.contactEmail,
+            schoolContactPerson: schoolData.contactPerson,
+            schoolContactPhone: schoolData.contactPhone,
+            schoolContactEmail: schoolData.contactEmail,
             registrationNumber: schoolData.registrationNumber,
             hasSubBranches: schoolData.hasSubBranches,
             parentSchoolId: schoolData.parentSchoolId,
           }
         };
         
-        return apiRequest('/entities', {
+        return apiRequest('/schools', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entityData),
+          body: JSON.stringify(schoolData_payload),
         });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/schools/list'] });
       toast({
         title: 'Success',
         description: editingSchool ? 'School updated successfully' : 'School registered successfully',
