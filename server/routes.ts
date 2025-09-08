@@ -2425,17 +2425,27 @@ router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADM
 // GET /api/students - return STUDENT entities
 router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { campId, franchiseeId, schoolId, page = '1', pageSize = '20' } = req.query;
+    const { campId, franchiseeId, schoolId, page = '1', pageSize = '20', search } = req.query;
     const students = await storage.getEntitiesByType('STUDENT');
     
-    // Filter based on user access
+    // Filter based on user access and role
     const accessibleEntityIds = req.user!.entityIds;
-    let filteredStudents = students.filter(entity => {
-      if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
-        return true;
-      }
-      return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
-    });
+    let filteredStudents = students;
+    
+    if (req.user!.roles.includes('PARENT')) {
+      // Parents should only see their own children
+      const parentStudentLinks = await storage.getParentStudentLinksByParent(req.user!.id);
+      const parentStudentIds = parentStudentLinks.map(link => link.studentEntityId);
+      filteredStudents = students.filter(student => parentStudentIds.includes(student.id));
+    } else if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+      // System/Org admins can see all students
+      filteredStudents = students;
+    } else {
+      // Other roles (franchise admin, school admin, etc.) see students based on entity access
+      filteredStudents = students.filter(entity => {
+        return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+      });
+    }
 
     // Apply additional filters
     if (schoolId) {
@@ -2487,10 +2497,20 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
       };
     }));
 
-    // Apply camp filter to transformed students
+    // Apply camp and search filters to transformed students
     let finalStudents = transformedStudents;
     if (campId) {
-      finalStudents = transformedStudents.filter(student => student.campId === parseInt(campId as string));
+      finalStudents = finalStudents.filter(student => student.campId === parseInt(campId as string));
+    }
+    
+    // Apply search filter
+    if (search && typeof search === 'string') {
+      const searchTerm = search.toLowerCase().trim();
+      finalStudents = finalStudents.filter(student => 
+        student.name.toLowerCase().includes(searchTerm) ||
+        student.rollNumber?.toLowerCase().includes(searchTerm) ||
+        student.parentName?.toLowerCase().includes(searchTerm)
+      );
     }
 
     // Get total count before pagination

@@ -226,13 +226,15 @@ export function Students() {
       franchiseeId: filterFranchiseeId,
       schoolId: filterSchoolId,
       page: currentPage,
-      pageSize: pageSize
+      pageSize: pageSize,
+      search: searchTerm
     }],
     queryFn: () => {
       const params = new URLSearchParams();
       if (selectedCamp !== 'all') params.append('campId', selectedCamp);
       if (filterFranchiseeId) params.append('franchiseeId', filterFranchiseeId.toString());
       if (filterSchoolId) params.append('schoolId', filterSchoolId.toString());
+      if (searchTerm.trim()) params.append('search', searchTerm.trim());
       params.append('page', currentPage.toString());
       params.append('pageSize', pageSize.toString());
       
@@ -1046,7 +1048,10 @@ export function Students() {
             <Input
               placeholder="Search by name or roll number..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page when searching
+              }}
               className="pl-10"
             />
           </div>
