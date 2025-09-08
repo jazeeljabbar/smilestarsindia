@@ -1076,8 +1076,8 @@ router.get('/franchises', authenticateToken, async (req: AuthenticatedRequest, r
         // Additional computed properties
         schoolCount,
         isActive: entity.status === 'ACTIVE',
-        agreementStatus: 'accepted', // Default for now, can be enhanced later
-        agreementAcceptedAt: entity.createdAt, // Default for now
+        agreementStatus: entity.status === 'ACTIVE' ? 'accepted' : 'pending',
+        agreementAcceptedAt: entity.status === 'ACTIVE' ? entity.updatedAt : null,
         // Keep original metadata for any additional needs
         metadata
       };

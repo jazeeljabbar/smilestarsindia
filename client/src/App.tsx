@@ -43,7 +43,7 @@ function AppRoutes() {
         <Route path="/auth/magic-link" component={MagicLink} />
         <Route path="/auth/simple-auth" component={SimpleAuth} />
         <Route path="/auth/agreements" component={AgreementPage} />
-        <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
+        <Route path="/franchise/agreement/:token" component={FranchiseAgreement} />
         <Route component={HomePage} /> {/* Default to homepage */}
       </Switch>
     );
