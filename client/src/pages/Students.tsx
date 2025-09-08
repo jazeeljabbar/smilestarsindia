@@ -48,7 +48,7 @@ const createStudentFormSchema = (userRoles: string[]) => {
   // Add franchisee selection for system admins
   if (userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) {
     return baseSchema.extend({
-      franchiseeId: z.number().optional(),
+      franchiseeId: z.number().min(0).optional(),
     });
   }
 
@@ -233,10 +233,13 @@ export function Students() {
   });
 
   // Franchisees data for system admins
-  const { data: franchisees = [] } = useQuery({
+  const { data: franchisees = [], isLoading: franchiseesLoading } = useQuery({
     queryKey: ['/api/franchisees/list'],
+    queryFn: () => apiRequest('/franchisees/list'),
     enabled: userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN'),
   });
+
+  console.log('Franchisees data:', franchisees, 'Loading:', franchiseesLoading);
 
   // Role-based schools data for registration form
   const { data: availableSchools = [] } = useQuery({
@@ -263,7 +266,7 @@ export function Students() {
       grade: '',
       rollNumber: '',
       schoolId: 0,
-      ...(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN') ? { franchiseeId: undefined } : {}),
+      ...(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN') ? { franchiseeId: 0 } : {}),
       parents: [{
         name: '',
         email: '',
@@ -478,7 +481,7 @@ export function Students() {
                                 </FormControl>
                                 <SelectContent>
                                   <SelectItem value="0">All Franchisees</SelectItem>
-                                  {franchisees.map((franchisee: any) => (
+                                  {(franchisees as any[]).map((franchisee: any) => (
                                     <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
                                       {franchisee.name}
                                     </SelectItem>
@@ -754,7 +757,7 @@ export function Students() {
                                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                               >
                                 <option value="0">All Franchisees</option>
-                                {franchisees.map((franchisee: any) => (
+                                {(franchisees as any[]).map((franchisee: any) => (
                                   <option key={franchisee.id} value={franchisee.id.toString()}>
                                     {franchisee.name}
                                   </option>
