@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'wouter';
-import { Smile, Bell, User, LogOut, Menu } from 'lucide-react';
+import { Smile, Bell, User, LogOut, Menu, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/lib/auth.tsx';
 import { getColorScheme, colorSchemes } from '@/lib/colorSchemes';
 
@@ -10,8 +11,39 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { user, logout } = useAuth();
-  const [location] = useLocation();
+  const { user, activeRole, logout, switchRole } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  // Role display names
+  const roleDisplayNames: { [key: string]: string } = {
+    'SYSTEM_ADMIN': 'System Admin',
+    'ORG_ADMIN': 'Org Admin',
+    'FRANCHISE_ADMIN': 'Franchise Admin',
+    'PRINCIPAL': 'Principal',
+    'SCHOOL_ADMIN': 'School Admin',
+    'TEACHER': 'Teacher',
+    'DENTIST': 'Dentist',
+    'PARENT': 'Parent'
+  };
+
+  // Dashboard paths for each role
+  const roleDashboards: { [key: string]: string } = {
+    'SYSTEM_ADMIN': '/dashboard',
+    'ORG_ADMIN': '/dashboard',
+    'FRANCHISE_ADMIN': '/dashboard', // Will redirect to FranchiseeDashboard
+    'PRINCIPAL': '/dashboard',       // Will redirect to SchoolAdminDashboard
+    'SCHOOL_ADMIN': '/dashboard',    // Will redirect to SchoolAdminDashboard
+    'TEACHER': '/dashboard',
+    'DENTIST': '/dashboard',
+    'PARENT': '/parent-portal'
+  };
+
+  const handleRoleSwitch = (newRole: string) => {
+    switchRole(newRole);
+    // Navigate to appropriate dashboard for the new role
+    const dashboardPath = roleDashboards[newRole] || '/dashboard';
+    setLocation(dashboardPath);
+  };
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: 'home', colorScheme: 'dashboard' },
@@ -108,8 +140,40 @@ export function Layout({ children }: LayoutProps) {
                 </div>
                 <div className="hidden md:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name}</div>
-                  <div className="text-xs text-gray-500 capitalize">{user?.roles?.join(', ').replace(/_/g, ' ').toLowerCase() || 'No roles'}</div>
+                  <div className="text-xs text-gray-500">
+                    {activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                  </div>
                 </div>
+                
+                {/* Role Switcher Dropdown */}
+                {user?.roles && user.roles.length > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="hidden md:flex items-center space-x-1">
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Switch Role</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {user.roles.map((role) => (
+                        <DropdownMenuItem
+                          key={role}
+                          onClick={() => handleRoleSwitch(role)}
+                          className={activeRole === role ? 'bg-blue-50 text-blue-700' : ''}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>{roleDisplayNames[role] || role}</span>
+                            {activeRole === role && (
+                              <div className="h-2 w-2 bg-blue-600 rounded-full" />
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
                 <Button variant="ghost" size="icon" onClick={logout}>
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -124,7 +188,60 @@ export function Layout({ children }: LayoutProps) {
                 </SheetTrigger>
                 <SheetContent side="right">
                   <div className="flex flex-col space-y-4 mt-8">
+                    {/* Mobile User Info */}
+                    <div className="flex items-center space-x-3 pb-4 border-b border-gray-200">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">
+                          {user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{user?.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mobile Role Switcher */}
+                    {user?.roles && user.roles.length > 1 && (
+                      <div className="pb-4 border-b border-gray-200">
+                        <div className="text-sm font-medium text-gray-900 mb-2">Switch Role</div>
+                        <div className="space-y-1">
+                          {user.roles.map((role) => (
+                            <button
+                              key={role}
+                              onClick={() => handleRoleSwitch(role)}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                activeRole === role 
+                                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{roleDisplayNames[role] || role}</span>
+                                {activeRole === role && (
+                                  <div className="h-2 w-2 bg-blue-600 rounded-full" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <NavItems />
+                    
+                    {/* Mobile Logout */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <button
+                        onClick={logout}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>

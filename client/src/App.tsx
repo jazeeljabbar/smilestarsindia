@@ -24,7 +24,7 @@ import { AuthProvider, useAuth } from '@/lib/auth.tsx';
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, isLoading } = useAuth();
+  const { user, activeRole, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -51,28 +51,24 @@ function AppRoutes() {
 
   // Show protected routes for authenticated users
   const getDashboardComponent = () => {
-    if (!user?.roles) return Dashboard;
+    if (!user?.roles || !activeRole) return Dashboard;
     
-    // Priority-based dashboard selection for multiple roles
-    const roles = user.roles;
-    
-    // System Admin and Org Admin get main Dashboard
-    if (roles.includes('SYSTEM_ADMIN') || roles.includes('ORG_ADMIN')) {
-      return Dashboard;
+    // Dashboard selection based on active role
+    switch (activeRole) {
+      case 'SYSTEM_ADMIN':
+      case 'ORG_ADMIN':
+        return Dashboard;
+      case 'FRANCHISE_ADMIN':
+        return FranchiseeDashboard;
+      case 'PRINCIPAL':
+      case 'SCHOOL_ADMIN':
+        return SchoolAdminDashboard;
+      case 'PARENT':
+        // Parents should go to ParentPortal instead of Dashboard
+        return () => <ParentPortal />;
+      default:
+        return Dashboard;
     }
-    
-    // Franchise Admin gets franchise dashboard
-    if (roles.includes('FRANCHISE_ADMIN')) {
-      return FranchiseeDashboard;
-    }
-    
-    // School-level roles get school dashboard
-    if (roles.includes('PRINCIPAL') || roles.includes('SCHOOL_ADMIN')) {
-      return SchoolAdminDashboard;
-    }
-    
-    // Default to main dashboard for other roles
-    return Dashboard;
   };
 
   return (
