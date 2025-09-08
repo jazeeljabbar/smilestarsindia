@@ -38,50 +38,23 @@ if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
   });
 }
 
-// Email sending function using Gmail
+// Email sending function (temporarily disabled)
 async function sendEmail(to: string, subject: string, html: string, from?: string) {
   const fromEmail = from || process.env.GMAIL_USER || 'admin@smilestarsindia.com';
   
-  console.log('=== SENDING EMAIL ===');
+  console.log('=== EMAIL SENDING DISABLED ===');
   console.log(`To: ${to}`);
   console.log(`From: ${fromEmail}`);
   console.log(`Subject: ${subject}`);
+  console.log('📧 Email sending is temporarily disabled. Email content logged below:');
+  console.log('--- EMAIL CONTENT ---');
+  console.log(html);
+  console.log('--- END EMAIL CONTENT ---');
+  console.log('✅ Email logged successfully (not sent)');
+  console.log('');
   
-  if (mailTransporter && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-    try {
-      await mailTransporter.sendMail({
-        from: fromEmail,
-        to,
-        subject,
-        html,
-      });
-      console.log(`✅ Email sent successfully to ${to} via Gmail`);
-      return true;
-    } catch (error: any) {
-      console.error('❌ Gmail email error:', error);
-      
-      // Log helpful instructions for fixing Gmail
-      console.log('');
-      console.log('🔧 TO FIX GMAIL EMAIL ISSUE:');
-      console.log('1. Make sure GMAIL_USER is set to admin@smilestarsindia.com');
-      console.log('2. Generate an App Password for Gmail (not your regular password)');
-      console.log('3. Set GMAIL_APP_PASSWORD environment variable to the app password');
-      console.log('4. Ensure 2-factor authentication is enabled on the Gmail account');
-      console.log('');
-      
-      return false;
-    }
-  } else {
-    console.log('📧 No Gmail credentials configured, logging email to console:');
-    console.log('Subject:', subject);
-    console.log('HTML:', html);
-    console.log('');
-    console.log('🔧 TO SETUP GMAIL:');
-    console.log('1. Set GMAIL_USER=admin@smilestarsindia.com');
-    console.log('2. Set GMAIL_APP_PASSWORD=your_gmail_app_password');
-    console.log('');
-    return false;
-  }
+  // Return true to prevent errors in the application flow
+  return true;
 }
 
 // Generate magic link token
