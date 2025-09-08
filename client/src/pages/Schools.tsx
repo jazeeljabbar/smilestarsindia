@@ -129,7 +129,8 @@ export function Schools() {
         contactPhone: '',
         contactEmail: '',
         registrationNumber: '',
-        franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? franchisees.find((f: any) => f.metadata?.adminUserId === user.id)?.id : undefined,
+        franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? 
+          user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN')?.entityId : undefined,
         hasSubBranches: false,
         parentSchoolId: undefined,
         isActive: true,
@@ -188,6 +189,8 @@ export function Schools() {
           }
         };
         
+        console.log('Sending school creation payload:', schoolData_payload);
+        
         return apiRequest('/schools', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -206,10 +209,11 @@ export function Schools() {
       setEditingSchool(null);
       form.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('School mutation error:', error);
       toast({
         title: 'Error',
-        description: editingSchool ? 'Failed to update school' : 'Failed to register school',
+        description: error?.message || (editingSchool ? 'Failed to update school' : 'Failed to register school'),
         variant: 'destructive',
       });
     },
@@ -239,6 +243,10 @@ export function Schools() {
   });
 
   const onSubmit = (data: SchoolFormData) => {
+    console.log('Form submission data:', data);
+    console.log('User memberships:', user?.memberships);
+    console.log('User roles:', user?.roles);
+    console.log('Selected franchiseId:', data.franchiseId);
     createSchoolMutation.mutate(data);
   };
 
