@@ -173,6 +173,7 @@ export function Users() {
     mutationFn: ({ id, data }: { id: number; data: EditUserFormData }) =>
       apiRequest(`/users/${id}`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       }),
     onSuccess: () => {

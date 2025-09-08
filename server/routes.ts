@@ -635,7 +635,11 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
       action: 'UPDATE_USER',
       targetId: userId,
       targetType: 'USER',
-      metadata: { updatedUserEmail: updatedUser.email, updatedUserName: updatedUser.name, roles }
+      metadata: {
+        updatedUserEmail: updatedUser.email,
+        updatedUserName: updatedUser.name,
+        updatedRoles: roles?.join(', ') || 'No roles updated'
+      }
     });
 
     res.json(userWithRoles);
@@ -673,7 +677,10 @@ router.delete('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG
       action: 'DELETE_USER',
       targetId: userId,
       targetType: 'USER',
-      metadata: { deletedUserEmail: user.email, deletedUserName: user.name }
+      metadata: {
+        deletedUserEmail: user.email,
+        deletedUserName: user.name
+      }
     });
 
     res.json({ message: 'User deleted successfully' });
