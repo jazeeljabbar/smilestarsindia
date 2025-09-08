@@ -30,7 +30,7 @@ export function Login() {
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@smilestarsindia.com',
+      email: 'admin.new@smilestarsindia.com',
       password: 'admin123',
     },
   });
