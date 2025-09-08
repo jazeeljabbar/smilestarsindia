@@ -1425,7 +1425,25 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
       return accessibleEntityIds.includes(school.id) || accessibleEntityIds.includes(school.parentId || 0);
     });
 
-    res.json(filteredSchools);
+    // Flatten metadata fields for frontend compatibility
+    const schoolsWithFlattenedData = filteredSchools.map(school => ({
+      ...school,
+      // Flatten metadata fields to top level for frontend access
+      address: school.metadata?.address,
+      city: school.metadata?.city,
+      state: school.metadata?.state,
+      pincode: school.metadata?.pincode,
+      contactPerson: school.metadata?.contactPerson,
+      contactPhone: school.metadata?.contactPhone,
+      contactEmail: school.metadata?.contactEmail,
+      registrationNumber: school.metadata?.registrationNumber,
+      hasSubBranches: school.metadata?.hasSubBranches,
+      // Legacy field mappings for backward compatibility
+      contactPersonName: school.metadata?.contactPerson,
+      isActive: school.status === 'ACTIVE'
+    }));
+
+    res.json(schoolsWithFlattenedData);
   } catch (error) {
     console.error('Get schools error:', error);
     res.status(500).json({ error: 'Failed to get schools' });
