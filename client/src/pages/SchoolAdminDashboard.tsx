@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -14,6 +15,8 @@ import { useAuth } from '@/lib/auth.tsx';
 export default function SchoolAdminDashboard() {
   console.log('SchoolAdminDashboard component rendered');
   const [showAgreement, setShowAgreement] = useState(false);
+  const [userAgreementChecked, setUserAgreementChecked] = useState(false);
+  const [schoolAgreementChecked, setSchoolAgreementChecked] = useState(false);
   const { user } = useAuth();
 
   // Get current user's school
@@ -43,7 +46,7 @@ export default function SchoolAdminDashboard() {
       return await apiRequest('/auth/accept-agreements', {
         method: 'POST',
         body: JSON.stringify({
-          agreementIds: [2], // School agreement ID (different from franchise)
+          agreementIds: [2, 3], // User agreement (TOS_STAFF) and School Partnership agreement
           entityId: school?.id // Include school entity ID to activate
         })
       });
@@ -54,8 +57,8 @@ export default function SchoolAdminDashboard() {
       queryClient.refetchQueries({ queryKey: ['/api/schools/my-school'] });
       
       toast({
-        title: 'Agreement Accepted',
-        description: 'Your school agreement has been successfully accepted. You can now access all features.',
+        title: 'Agreements Accepted Successfully',
+        description: 'Both your personal account and school have been activated. You now have full access to all features.',
       });
       setShowAgreement(false);
     },
@@ -110,74 +113,157 @@ export default function SchoolAdminDashboard() {
   if (shouldShowAgreement) {
     return (
       <div className="space-y-6">
-        {/* Agreement Modal - Mandatory */}
+        {/* Dual Agreement Modal - Mandatory */}
         <Dialog open={true} onOpenChange={() => {}}>
-          <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogContent className="max-w-6xl max-h-[85vh]">
             <DialogHeader>
-              <DialogTitle>School Agreement - Smile Stars India</DialogTitle>
+              <DialogTitle>Welcome to Smile Stars India - Agreement Acceptance Required</DialogTitle>
               <DialogDescription>
-                Welcome! Please review and accept the agreement to activate your school account and access the platform features.
+                Welcome! Please review and accept both agreements below to activate your account and school participation.
               </DialogDescription>
             </DialogHeader>
             
-            <ScrollArea className="h-96 w-full border rounded-md p-4">
-              <div className="space-y-4 text-sm">
-                <h3 className="font-semibold text-lg">Terms and Conditions for School Partnership</h3>
-                
-                <div className="space-y-3">
-                  <h4 className="font-medium">1. Partnership Overview</h4>
-                  <p>
-                    By registering {school.name} with Smile Stars India, you agree to participate in our preventive 
-                    dental care program designed to improve oral health outcomes for school children.
-                  </p>
-
-                  <h4 className="font-medium">2. School Responsibilities</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Provide accurate student enrollment data for dental camps</li>
-                    <li>Ensure proper communication with parents regarding dental screenings</li>
-                    <li>Facilitate access to school premises for dental team visits</li>
-                    <li>Maintain confidentiality of student health information</li>
-                    <li>Support follow-up communications with parents</li>
-                  </ul>
-
-                  <h4 className="font-medium">3. Smile Stars India Services</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Comprehensive dental screenings by qualified dentists</li>
-                    <li>Digital dental charts and health records</li>
-                    <li>Parent communication and report delivery</li>
-                    <li>Preventive care recommendations</li>
-                    <li>Follow-up support and guidance</li>
-                  </ul>
-
-                  <h4 className="font-medium">4. Data Privacy and Security</h4>
-                  <p>
-                    All student health information will be handled in accordance with applicable privacy laws. 
-                    Data will be used solely for the purpose of providing dental care services and parent communication.
-                  </p>
-
-                  <h4 className="font-medium">5. Program Duration</h4>
-                  <p>
-                    This agreement remains valid for the academic year and may be renewed annually based on 
-                    mutual agreement and program effectiveness.
-                  </p>
-
-                  <h4 className="font-medium">6. Contact Information</h4>
-                  <p>
-                    For any questions or concerns regarding this agreement, please contact your assigned 
-                    franchisee or our support team.
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* User Agreement */}
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100 mb-2">
+                    👤 Personal User Agreement
+                  </h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Terms of service for your personal account as a school administrator
                   </p>
                 </div>
-              </div>
-            </ScrollArea>
+                
+                <ScrollArea className="h-64 w-full border rounded-md p-4">
+                  <div className="space-y-3 text-sm">
+                    <h4 className="font-medium">Terms of Service for Staff</h4>
+                    
+                    <div className="space-y-2">
+                      <h5 className="font-medium text-sm">1. Account Responsibilities</h5>
+                      <p className="text-xs">
+                        You are responsible for maintaining the confidentiality of your account credentials 
+                        and for all activities that occur under your account.
+                      </p>
 
-            <DialogFooter className="gap-2">
-              <Button 
-                onClick={() => acceptAgreementMutation.mutate()}
-                disabled={acceptAgreementMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 w-full"
-              >
-                {acceptAgreementMutation.isPending ? 'Accepting Agreement...' : 'Accept Agreement & Access Dashboard'}
-              </Button>
+                      <h5 className="font-medium text-sm">2. Professional Conduct</h5>
+                      <p className="text-xs">
+                        You agree to conduct yourself professionally and in accordance with 
+                        applicable healthcare privacy regulations when handling student information.
+                      </p>
+
+                      <h5 className="font-medium text-sm">3. Data Security</h5>
+                      <p className="text-xs">
+                        You must protect all student health information and use the platform 
+                        only for authorized dental care program purposes.
+                      </p>
+
+                      <h5 className="font-medium text-sm">4. Platform Usage</h5>
+                      <p className="text-xs">
+                        The platform must be used solely for managing school dental care programs 
+                        and related administrative tasks.
+                      </p>
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="user-agreement"
+                    checked={userAgreementChecked}
+                    onCheckedChange={setUserAgreementChecked}
+                  />
+                  <label htmlFor="user-agreement" className="text-sm font-medium">
+                    I accept the Terms of Service for my personal account
+                  </label>
+                </div>
+              </div>
+
+              {/* School Agreement */}
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg text-green-900 dark:text-green-100 mb-2">
+                    🏫 School Partnership Agreement
+                  </h3>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Terms for {school.name}'s participation in the dental care program
+                  </p>
+                </div>
+                
+                <ScrollArea className="h-64 w-full border rounded-md p-4">
+                  <div className="space-y-3 text-sm">
+                    <h4 className="font-medium">School Partnership Agreement</h4>
+                    
+                    <div className="space-y-2">
+                      <h5 className="font-medium text-sm">1. Partnership Overview</h5>
+                      <p className="text-xs">
+                        {school.name} agrees to participate in our preventive dental care program 
+                        designed to improve oral health outcomes for school children.
+                      </p>
+
+                      <h5 className="font-medium text-sm">2. School Responsibilities</h5>
+                      <ul className="list-disc pl-4 space-y-1 text-xs">
+                        <li>Provide accurate student enrollment data for dental camps</li>
+                        <li>Ensure proper communication with parents regarding dental screenings</li>
+                        <li>Facilitate access to school premises for dental team visits</li>
+                        <li>Maintain confidentiality of student health information</li>
+                      </ul>
+
+                      <h5 className="font-medium text-sm">3. Smile Stars India Services</h5>
+                      <ul className="list-disc pl-4 space-y-1 text-xs">
+                        <li>Comprehensive dental screenings by qualified dentists</li>
+                        <li>Digital dental charts and health records</li>
+                        <li>Parent communication and report delivery</li>
+                        <li>Preventive care recommendations</li>
+                      </ul>
+
+                      <h5 className="font-medium text-sm">4. Data Privacy and Security</h5>
+                      <p className="text-xs">
+                        All student health information will be handled in accordance with applicable 
+                        privacy laws and used solely for dental care services.
+                      </p>
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="school-agreement"
+                    checked={schoolAgreementChecked}
+                    onCheckedChange={setSchoolAgreementChecked}
+                  />
+                  <label htmlFor="school-agreement" className="text-sm font-medium">
+                    I accept the School Partnership Agreement for {school.name}
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 mt-6">
+              <div className="w-full space-y-2">
+                <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
+                  <div className={`flex items-center space-x-1 ${userAgreementChecked ? 'text-green-600' : 'text-gray-400'}`}>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>User Agreement</span>
+                  </div>
+                  <div className={`flex items-center space-x-1 ${schoolAgreementChecked ? 'text-green-600' : 'text-gray-400'}`}>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>School Agreement</span>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => acceptAgreementMutation.mutate()}
+                  disabled={acceptAgreementMutation.isPending || !userAgreementChecked || !schoolAgreementChecked}
+                  className="bg-green-600 hover:bg-green-700 w-full"
+                >
+                  {acceptAgreementMutation.isPending ? 'Accepting Agreements...' : 'Accept Both Agreements & Activate Account'}
+                </Button>
+                {(!userAgreementChecked || !schoolAgreementChecked) && (
+                  <p className="text-center text-sm text-gray-500">
+                    Please accept both agreements to continue
+                  </p>
+                )}
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
