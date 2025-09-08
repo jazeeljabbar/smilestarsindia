@@ -1770,7 +1770,24 @@ router.delete('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG
 router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const camps = await storage.getAllCamps();
-    res.json(camps);
+    
+    // Add school information to each camp
+    const campsWithSchools = await Promise.all(
+      camps.map(async (camp) => {
+        const school = await storage.getEntityById(camp.schoolEntityId);
+        return {
+          ...camp,
+          school: school ? {
+            id: school.id,
+            name: school.name,
+            city: school.metadata?.city || '',
+            state: school.metadata?.state || ''
+          } : null
+        };
+      })
+    );
+    
+    res.json(campsWithSchools);
   } catch (error) {
     console.error('Get camps error:', error);
     res.status(500).json({ error: 'Failed to get camps' });
@@ -2642,10 +2659,18 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
       // Other roles (franchise admin, school admin, etc.) see students based on entity access
       if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
         // Franchise admins see students from all schools under their franchisee
-        const allSchools = await storage.getEntitiesByType('SCHOOL');
-        const franchiseeSchools = allSchools.filter(school => accessibleEntityIds.includes(school.parentId || 0));
-        const franchiseeSchoolIds = franchiseeSchools.map(school => school.id);
-        filteredStudents = students.filter(student => franchiseeSchoolIds.includes(student.parentId || 0));
+        const userMemberships = await storage.getMembershipsByUser(req.user!.id);
+        const franchiseeMemberships = userMemberships.filter(m => m.role === 'FRANCHISE_ADMIN');
+        
+        if (franchiseeMemberships.length > 0) {
+          const franchiseeIds = franchiseeMemberships.map(m => m.entityId);
+          const allSchools = await storage.getEntitiesByType('SCHOOL');
+          const franchiseeSchools = allSchools.filter(school => franchiseeIds.includes(school.parentId || 0));
+          const franchiseeSchoolIds = franchiseeSchools.map(school => school.id);
+          filteredStudents = students.filter(student => franchiseeSchoolIds.includes(student.parentId || 0));
+        } else {
+          filteredStudents = [];
+        }
       } else {
         // School admins and other roles see students based on direct entity access
         filteredStudents = students.filter(entity => {
