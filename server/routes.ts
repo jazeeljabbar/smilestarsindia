@@ -338,65 +338,156 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
 // Download student template Excel file
 router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // Create template data structure
-    const templateData = [
-      {
-        'Student Name': 'John Doe',
-        'Age': 12,
-        'Gender': 'MALE',
-        'Grade': '7th Grade',
-        'Roll Number': 'ST001',
-        'Parent 1 Name': 'Jane Doe',
-        'Parent 1 Email': 'jane@example.com',
-        'Parent 1 Phone': '+91-9876543210',
-        'Parent 1 Relationship': 'MOTHER',
-        'Parent 1 Occupation': 'Doctor',
-        'Parent 1 Has Custody': 'TRUE',
-        'Parent 1 Can Pickup': 'TRUE',
-        'Parent 1 Emergency Contact': 'TRUE',
-        'Parent 1 Medical Decisions': 'TRUE',
-        'Parent 2 Name': 'John Doe Sr',
-        'Parent 2 Email': 'john@example.com',
-        'Parent 2 Phone': '+91-9876543211',
-        'Parent 2 Relationship': 'FATHER',
-        'Parent 2 Occupation': 'Engineer',
-        'Parent 2 Has Custody': 'TRUE',
-        'Parent 2 Can Pickup': 'TRUE',
-        'Parent 2 Emergency Contact': 'FALSE',
-        'Parent 2 Medical Decisions': 'FALSE'
-      }
-    ];
+    // Create role-specific template data
+    const baseStudentData = {
+      'Student Name': 'John Doe',
+      'Age': 12,
+      'Gender': 'MALE',
+      'Grade': '7th Grade',
+      'Roll Number': 'ST001',
+    };
+
+    const parentData = {
+      'Parent 1 Name': 'Jane Doe',
+      'Parent 1 Email': 'jane@example.com',
+      'Parent 1 Phone': '+91-9876543210',
+      'Parent 1 Relationship': 'MOTHER',
+      'Parent 1 Occupation': 'Doctor',
+      'Parent 1 Has Custody': 'TRUE',
+      'Parent 1 Can Pickup': 'TRUE',
+      'Parent 1 Emergency Contact': 'TRUE',
+      'Parent 1 Medical Decisions': 'TRUE',
+      'Parent 2 Name': 'John Doe Sr',
+      'Parent 2 Email': 'john@example.com',
+      'Parent 2 Phone': '+91-9876543211',
+      'Parent 2 Relationship': 'FATHER',
+      'Parent 2 Occupation': 'Engineer',
+      'Parent 2 Has Custody': 'TRUE',
+      'Parent 2 Can Pickup': 'TRUE',
+      'Parent 2 Emergency Contact': 'FALSE',
+      'Parent 2 Medical Decisions': 'FALSE'
+    };
+
+    // Build template data based on user role
+    let templateRow = {};
+    
+    if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+      // Admin template: Include franchisee and school columns
+      templateRow = {
+        'Franchisee Name': 'Test Franchisee',
+        'School Name': 'Test School',
+        ...baseStudentData,
+        ...parentData
+      };
+    } else if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+      // Franchisee template: Include school column
+      templateRow = {
+        'School Name': 'Test School',
+        ...baseStudentData,
+        ...parentData
+      };
+    } else {
+      // School admin template: No additional columns
+      templateRow = {
+        ...baseStudentData,
+        ...parentData
+      };
+    }
+
+    const templateData = [templateRow];
 
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(templateData);
 
-    // Set column widths
-    const colWidths = [
-      { wch: 20 }, // Student Name
-      { wch: 5 },  // Age
-      { wch: 8 },  // Gender
-      { wch: 15 }, // Grade
-      { wch: 12 }, // Roll Number
-      { wch: 20 }, // Parent 1 Name
-      { wch: 25 }, // Parent 1 Email
-      { wch: 15 }, // Parent 1 Phone
-      { wch: 12 }, // Parent 1 Relationship
-      { wch: 15 }, // Parent 1 Occupation
-      { wch: 12 }, // Parent 1 Has Custody
-      { wch: 12 }, // Parent 1 Can Pickup
-      { wch: 15 }, // Parent 1 Emergency Contact
-      { wch: 15 }, // Parent 1 Medical Decisions
-      { wch: 20 }, // Parent 2 Name
-      { wch: 25 }, // Parent 2 Email
-      { wch: 15 }, // Parent 2 Phone
-      { wch: 12 }, // Parent 2 Relationship
-      { wch: 15 }, // Parent 2 Occupation
-      { wch: 12 }, // Parent 2 Has Custody
-      { wch: 12 }, // Parent 2 Can Pickup
-      { wch: 15 }, // Parent 2 Emergency Contact
-      { wch: 15 }  // Parent 2 Medical Decisions
-    ];
+    // Set column widths based on template structure
+    let colWidths = [];
+    
+    if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
+      // Admin template with franchisee and school columns
+      colWidths = [
+        { wch: 20 }, // Franchisee Name
+        { wch: 20 }, // School Name
+        { wch: 20 }, // Student Name
+        { wch: 5 },  // Age
+        { wch: 8 },  // Gender
+        { wch: 15 }, // Grade
+        { wch: 12 }, // Roll Number
+        { wch: 20 }, // Parent 1 Name
+        { wch: 25 }, // Parent 1 Email
+        { wch: 15 }, // Parent 1 Phone
+        { wch: 12 }, // Parent 1 Relationship
+        { wch: 15 }, // Parent 1 Occupation
+        { wch: 12 }, // Parent 1 Has Custody
+        { wch: 12 }, // Parent 1 Can Pickup
+        { wch: 15 }, // Parent 1 Emergency Contact
+        { wch: 15 }, // Parent 1 Medical Decisions
+        { wch: 20 }, // Parent 2 Name
+        { wch: 25 }, // Parent 2 Email
+        { wch: 15 }, // Parent 2 Phone
+        { wch: 12 }, // Parent 2 Relationship
+        { wch: 15 }, // Parent 2 Occupation
+        { wch: 12 }, // Parent 2 Has Custody
+        { wch: 12 }, // Parent 2 Can Pickup
+        { wch: 15 }, // Parent 2 Emergency Contact
+        { wch: 15 }  // Parent 2 Medical Decisions
+      ];
+    } else if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+      // Franchisee template with school column
+      colWidths = [
+        { wch: 20 }, // School Name
+        { wch: 20 }, // Student Name
+        { wch: 5 },  // Age
+        { wch: 8 },  // Gender
+        { wch: 15 }, // Grade
+        { wch: 12 }, // Roll Number
+        { wch: 20 }, // Parent 1 Name
+        { wch: 25 }, // Parent 1 Email
+        { wch: 15 }, // Parent 1 Phone
+        { wch: 12 }, // Parent 1 Relationship
+        { wch: 15 }, // Parent 1 Occupation
+        { wch: 12 }, // Parent 1 Has Custody
+        { wch: 12 }, // Parent 1 Can Pickup
+        { wch: 15 }, // Parent 1 Emergency Contact
+        { wch: 15 }, // Parent 1 Medical Decisions
+        { wch: 20 }, // Parent 2 Name
+        { wch: 25 }, // Parent 2 Email
+        { wch: 15 }, // Parent 2 Phone
+        { wch: 12 }, // Parent 2 Relationship
+        { wch: 15 }, // Parent 2 Occupation
+        { wch: 12 }, // Parent 2 Has Custody
+        { wch: 12 }, // Parent 2 Can Pickup
+        { wch: 15 }, // Parent 2 Emergency Contact
+        { wch: 15 }  // Parent 2 Medical Decisions
+      ];
+    } else {
+      // School admin template (original)
+      colWidths = [
+        { wch: 20 }, // Student Name
+        { wch: 5 },  // Age
+        { wch: 8 },  // Gender
+        { wch: 15 }, // Grade
+        { wch: 12 }, // Roll Number
+        { wch: 20 }, // Parent 1 Name
+        { wch: 25 }, // Parent 1 Email
+        { wch: 15 }, // Parent 1 Phone
+        { wch: 12 }, // Parent 1 Relationship
+        { wch: 15 }, // Parent 1 Occupation
+        { wch: 12 }, // Parent 1 Has Custody
+        { wch: 12 }, // Parent 1 Can Pickup
+        { wch: 15 }, // Parent 1 Emergency Contact
+        { wch: 15 }, // Parent 1 Medical Decisions
+        { wch: 20 }, // Parent 2 Name
+        { wch: 25 }, // Parent 2 Email
+        { wch: 15 }, // Parent 2 Phone
+        { wch: 12 }, // Parent 2 Relationship
+        { wch: 15 }, // Parent 2 Occupation
+        { wch: 12 }, // Parent 2 Has Custody
+        { wch: 12 }, // Parent 2 Can Pickup
+        { wch: 15 }, // Parent 2 Emergency Contact
+        { wch: 15 }  // Parent 2 Medical Decisions
+      ];
+    }
     ws['!cols'] = colWidths;
 
     // Add sheet to workbook
@@ -2263,16 +2354,30 @@ router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADM
 // GET /api/students - return STUDENT entities
 router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { campId, franchiseeId, schoolId, page = '1', pageSize = '20' } = req.query;
     const students = await storage.getEntitiesByType('STUDENT');
     
     // Filter based on user access
     const accessibleEntityIds = req.user!.entityIds;
-    const filteredStudents = students.filter(entity => {
+    let filteredStudents = students.filter(entity => {
       if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
         return true;
       }
       return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
     });
+
+    // Apply additional filters
+    if (schoolId) {
+      filteredStudents = filteredStudents.filter(student => student.parentId === parseInt(schoolId as string));
+    }
+    
+    if (franchiseeId) {
+      // Filter by franchisee through school's parent relationship
+      const allSchools = await storage.getEntitiesByType('SCHOOL');
+      const franchiseeSchools = allSchools.filter(school => school.parentId === parseInt(franchiseeId as string));
+      const franchiseeSchoolIds = franchiseeSchools.map(school => school.id);
+      filteredStudents = filteredStudents.filter(student => franchiseeSchoolIds.includes(student.parentId || 0));
+    }
 
     // Transform student data to include metadata fields at top level and parent info
     const transformedStudents = await Promise.all(filteredStudents.map(async (student) => {
@@ -2311,7 +2416,29 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
       };
     }));
 
-    res.json(transformedStudents);
+    // Apply camp filter to transformed students
+    let finalStudents = transformedStudents;
+    if (campId) {
+      finalStudents = transformedStudents.filter(student => student.campId === parseInt(campId as string));
+    }
+
+    // Get total count before pagination
+    const total = finalStudents.length;
+    
+    // Apply pagination
+    const pageNum = parseInt(page as string);
+    const pageSizeNum = parseInt(pageSize as string);
+    const startIndex = (pageNum - 1) * pageSizeNum;
+    const endIndex = startIndex + pageSizeNum;
+    const paginatedStudents = finalStudents.slice(startIndex, endIndex);
+
+    res.json({
+      students: paginatedStudents,
+      total,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      totalPages: Math.ceil(total / pageSizeNum)
+    });
   } catch (error) {
     console.error('Get students error:', error);
     res.status(500).json({ error: 'Failed to get students' });
