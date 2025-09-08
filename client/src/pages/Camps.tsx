@@ -222,7 +222,7 @@ export function Camps() {
             </div>
           )}
         </div>
-        {(user?.role === 'admin' || user?.role === 'franchisee') && (
+        {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN' || activeRole === 'FRANCHISE_ADMIN') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className={colorSchemes.camps.primary}>
