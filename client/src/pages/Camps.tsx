@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, Users, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Calendar, Users, Eye, Edit, Trash2, UserPlus, UserMinus, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,6 +21,8 @@ export function Camps() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCamp, setSelectedCamp] = useState<any>(null);
+  const [showEnrollmentView, setShowEnrollmentView] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
   // Simple form state - no complex validation
   const [formData, setFormData] = useState({
@@ -71,6 +74,19 @@ export function Camps() {
     enabled: activeRole !== 'SCHOOL_ADMIN',
   });
 
+  // Enrollment management queries
+  const { data: enrolledStudents = [], isLoading: enrolledLoading } = useQuery({
+    queryKey: ['/api/camps', selectedCamp?.id, 'enrollments'],
+    queryFn: () => apiRequest(`/camps/${selectedCamp.id}/enrollments`),
+    enabled: !!(selectedCamp?.id && showEnrollmentView),
+  });
+
+  const { data: availableStudents = [], isLoading: availableLoading } = useQuery({
+    queryKey: ['/api/camps', selectedCamp?.id, 'available-students'],
+    queryFn: () => apiRequest(`/camps/${selectedCamp.id}/available-students`),
+    enabled: !!(selectedCamp?.id && showEnrollmentView),
+  });
+
   const createCampMutation = useMutation({
     mutationFn: (campData: any) => {
       return apiRequest('/camps', {
@@ -92,6 +108,56 @@ export function Camps() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to schedule camp',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Enrollment mutations
+  const enrollStudentsMutation = useMutation({
+    mutationFn: ({ campId, studentIds }: { campId: number; studentIds: number[] }) => {
+      return apiRequest(`/camps/${campId}/enrollments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds }),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/camps', selectedCamp?.id, 'enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/camps', selectedCamp?.id, 'available-students'] });
+      toast({
+        title: 'Success',
+        description: data.message || 'Students enrolled successfully',
+      });
+      setSelectedStudents([]);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to enroll students',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const removeStudentMutation = useMutation({
+    mutationFn: ({ campId, studentId }: { campId: number; studentId: number }) => {
+      return apiRequest(`/camps/${campId}/enrollments/${studentId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/camps', selectedCamp?.id, 'enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/camps', selectedCamp?.id, 'available-students'] });
+      toast({
+        title: 'Success',
+        description: 'Student removed from camp successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to remove student',
         variant: 'destructive',
       });
     },
@@ -183,6 +249,43 @@ export function Camps() {
     createCampMutation.mutate(campData);
   };
 
+  // Enrollment management handlers
+  const openEnrollmentView = (camp: any) => {
+    setSelectedCamp(camp);
+    setShowEnrollmentView(true);
+    setSelectedStudents([]);
+  };
+
+  const closeEnrollmentView = () => {
+    setSelectedCamp(null);
+    setShowEnrollmentView(false);
+    setSelectedStudents([]);
+  };
+
+  const toggleStudentSelection = (studentId: number) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const enrollSelectedStudents = () => {
+    if (selectedStudents.length === 0 || !selectedCamp) return;
+    enrollStudentsMutation.mutate({
+      campId: selectedCamp.id,
+      studentIds: selectedStudents
+    });
+  };
+
+  const removeStudent = (studentId: number) => {
+    if (!selectedCamp) return;
+    removeStudentMutation.mutate({
+      campId: selectedCamp.id,
+      studentId
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, any> = {
       active: { className: 'bg-green-100 text-green-800' },
@@ -204,6 +307,120 @@ export function Camps() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Render enrollment management view
+  if (showEnrollmentView && selectedCamp) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              onClick={closeEnrollmentView}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Camps</span>
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{selectedCamp.name}</h1>
+              <p className="text-gray-600">Manage student enrollment for this camp</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Enrolled Students */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span>Enrolled Students ({enrolledStudents.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {enrolledLoading ? (
+                <div className="flex justify-center p-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : enrolledStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No students enrolled yet</p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {enrolledStudents.map((student: any) => (
+                    <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-sm text-gray-500">
+                          Grade {student.grade} • Roll: {student.rollNumber}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStudent(student.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={removeStudentMutation.isPending}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Available Students */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <UserPlus className="h-5 w-5 text-blue-600" />
+                  <span>Available Students ({availableStudents.length})</span>
+                </div>
+                {selectedStudents.length > 0 && (
+                  <Button
+                    onClick={enrollSelectedStudents}
+                    disabled={enrollStudentsMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Enroll {selectedStudents.length} Student{selectedStudents.length !== 1 ? 's' : ''}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {availableLoading ? (
+                <div className="flex justify-center p-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : availableStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">All students from this school are enrolled</p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {availableStudents.map((student: any) => (
+                    <div key={student.id} className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg">
+                      <Checkbox
+                        checked={selectedStudents.includes(student.id)}
+                        onCheckedChange={() => toggleStudentSelection(student.id)}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-sm text-gray-500">
+                          Grade {student.grade} • Roll: {student.rollNumber} • Age: {student.age}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -536,6 +753,15 @@ export function Camps() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => openEnrollmentView(camp)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="Manage Students"
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
