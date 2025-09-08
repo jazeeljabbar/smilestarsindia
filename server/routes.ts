@@ -332,14 +332,12 @@ router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN',
   }
 });
 
-// Bulk upload students with preview
+// Bulk upload students
 router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-
-    const { preview } = req.body; // If preview=true, only return preview data
     
     // Parse Excel file
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -397,12 +395,48 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
           }
         }
 
-        // Basic validation
-        if (!studentData.name || !studentData.age || !studentData.gender || !studentData.grade || 
-            !studentData.rollNumber || studentData.parents.length === 0) {
+        // Detailed validation with specific error messages
+        const validationErrors: string[] = [];
+        
+        if (!studentData.name || studentData.name.trim() === '') {
+          validationErrors.push('Student Name is required');
+        }
+        if (!studentData.age || studentData.age < 1 || studentData.age > 18) {
+          validationErrors.push('Age must be a number between 1-18');
+        }
+        if (!studentData.gender || !['MALE', 'FEMALE', 'OTHER'].includes(studentData.gender)) {
+          validationErrors.push('Gender must be exactly MALE, FEMALE, or OTHER');
+        }
+        if (!studentData.grade || studentData.grade.trim() === '') {
+          validationErrors.push('Grade is required');
+        }
+        if (!studentData.rollNumber || studentData.rollNumber.trim() === '') {
+          validationErrors.push('Roll Number is required');
+        }
+        if (studentData.parents.length === 0) {
+          validationErrors.push('At least one parent is required');
+        } else {
+          // Validate parent data
+          studentData.parents.forEach((parent: any, parentIndex: number) => {
+            if (!parent.name || parent.name.trim() === '') {
+              validationErrors.push(`Parent ${parentIndex + 1} Name is required`);
+            }
+            if (!parent.email || !/\S+@\S+\.\S+/.test(parent.email)) {
+              validationErrors.push(`Parent ${parentIndex + 1} Email must be valid`);
+            }
+            if (!parent.phone || parent.phone.trim() === '') {
+              validationErrors.push(`Parent ${parentIndex + 1} Phone is required`);
+            }
+            if (!['MOTHER', 'FATHER', 'GUARDIAN', 'OTHER'].includes(parent.relationship)) {
+              validationErrors.push(`Parent ${parentIndex + 1} Relationship must be MOTHER, FATHER, GUARDIAN, or OTHER`);
+            }
+          });
+        }
+
+        if (validationErrors.length > 0) {
           errors.push({
             row: i + 2, // Excel row number (header is row 1)
-            error: 'Missing required fields',
+            error: validationErrors.join('; '),
             data: studentData
           });
           continue;
@@ -422,21 +456,19 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
       }
     }
 
-    // If preview mode, return first 10 records and summary
-    if (preview === 'true') {
-      return res.json({
-        preview: students.slice(0, 10),
-        totalRecords: students.length,
-        errors: errors.slice(0, 10),
-        totalErrors: errors.length,
-        schoolId: defaultSchoolId
+    // If there are validation errors, return them immediately
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: `Found ${errors.length} validation error(s) in your Excel file`,
+        errors,
+        totalRecords: jsonData.length
       });
     }
 
-    // Full processing mode - check for duplicates and create students
+    // Check if any valid students found
     if (students.length === 0) {
       return res.status(400).json({ 
-        error: 'No valid student records found',
+        error: 'No valid student records found in the Excel file. Please check the format and try again.',
         errors 
       });
     }

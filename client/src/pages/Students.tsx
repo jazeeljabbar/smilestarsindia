@@ -90,29 +90,7 @@ export function Students() {
     const file = event.target.files?.[0];
     if (file) {
       setUploadFile(file);
-      setUploadStep('preview');
-      // Get preview
-      previewUpload(file);
-    }
-  };
-
-  const previewUpload = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('preview', 'true');
-
-    try {
-      const response = await apiRequest('/students/bulk-upload', {
-        method: 'POST',
-        body: formData,
-      });
-      setUploadPreview(response);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to preview file',
-        variant: 'destructive',
-      });
+      setUploadStep('upload');
     }
   };
 
@@ -161,13 +139,31 @@ export function Students() {
       });
       setShowBulkUpload(false);
       setUploadFile(null);
-      setUploadPreview(null);
       setUploadStep('select');
     },
     onError: (error: any) => {
+      const errorData = error.response?.data;
+      let errorMessage = 'Failed to upload students';
+      
+      if (errorData?.errors && errorData.errors.length > 0) {
+        const errorDetails = errorData.errors.slice(0, 3).map((err: any) => 
+          `Row ${err.row}: ${err.error}`
+        ).join('\n');
+        errorMessage = `Format errors found:\n${errorDetails}`;
+        if (errorData.errors.length > 3) {
+          errorMessage += `\n... and ${errorData.errors.length - 3} more errors`;
+        }
+      } else if (errorData?.duplicatesInFile && errorData.duplicatesInFile.length > 0) {
+        errorMessage = `Duplicate students found in file: ${errorData.duplicatesInFile.map((d: any) => d.student).join(', ')}`;
+      } else if (errorData?.duplicatesInDB && errorData.duplicatesInDB.length > 0) {
+        errorMessage = `Students already exist: ${errorData.duplicatesInDB.map((d: any) => d.student).join(', ')}`;
+      } else if (errorData?.error) {
+        errorMessage = errorData.error;
+      }
+
       toast({
         title: 'Upload Failed',
-        description: error.response?.data?.error || 'Failed to upload students',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -627,111 +623,64 @@ export function Students() {
                 <DialogTitle>Bulk Upload Students</DialogTitle>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto pr-2">
-                {uploadStep === 'select' && (
-                  <div className="space-y-4">
-                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
-                      <p className="text-gray-500 mb-4">
-                        Select an Excel file (.xlsx, .xls) containing student data
-                      </p>
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        id="file-upload"
-                        ref={(input) => {
-                          if (input) {
-                            input.onclick = () => {
-                              input.value = '';
-                            };
-                          }
-                        }}
-                      />
-                      <Button 
-                        type="button" 
-                        onClick={() => document.getElementById('file-upload')?.click()}
-                        className="cursor-pointer"
-                      >
-                        {uploadFile ? uploadFile.name : 'Choose File'}
-                      </Button>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Instructions:</h4>
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Download the template file first</li>
-                        <li>• Fill in student and parent information</li>
-                        <li>• School will be automatically set to your school</li>
-                        <li>• Each student can have up to 2 parents</li>
-                        <li>• Use TRUE/FALSE for permission fields</li>
-                      </ul>
-                    </div>
+                <div className="space-y-4">
+                  <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
+                    <p className="text-gray-500 mb-4">
+                      Select an Excel file (.xlsx, .xls) containing student data
+                    </p>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                      ref={(input) => {
+                        if (input) {
+                          input.onclick = () => {
+                            input.value = '';
+                          };
+                        }
+                      }}
+                    />
+                    <Button 
+                      type="button" 
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                      className="cursor-pointer"
+                    >
+                      {uploadFile ? uploadFile.name : 'Choose File'}
+                    </Button>
                   </div>
-                )}
-
-                {uploadStep === 'preview' && uploadPreview && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Preview Upload</h3>
-                      <Badge variant="outline">
-                        {uploadPreview.totalRecords} students found
-                      </Badge>
-                    </div>
-
-                    {uploadPreview.totalErrors > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-red-800 mb-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="font-medium">{uploadPreview.totalErrors} errors found</span>
-                        </div>
-                        <div className="space-y-1 text-sm text-red-700">
-                          {uploadPreview.errors.map((error: any, index: number) => (
-                            <div key={index}>Row {error.row}: {error.error}</div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="border rounded-lg">
-                      <div className="bg-gray-50 px-4 py-2 border-b">
-                        <h4 className="font-medium">First 10 Students Preview</h4>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Name</th>
-                              <th className="px-3 py-2 text-left">Age</th>
-                              <th className="px-3 py-2 text-left">Gender</th>
-                              <th className="px-3 py-2 text-left">Grade</th>
-                              <th className="px-3 py-2 text-left">Roll No.</th>
-                              <th className="px-3 py-2 text-left">Parents</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {uploadPreview.preview.map((student: any, index: number) => (
-                              <tr key={index} className="border-t">
-                                <td className="px-3 py-2">{student.name}</td>
-                                <td className="px-3 py-2">{student.age}</td>
-                                <td className="px-3 py-2">{student.gender}</td>
-                                <td className="px-3 py-2">{student.grade}</td>
-                                <td className="px-3 py-2">{student.rollNumber}</td>
-                                <td className="px-3 py-2">
-                                  {student.parents.map((p: any, i: number) => (
-                                    <div key={i} className="text-xs">
-                                      {p.name} ({p.relationship})
-                                    </div>
-                                  ))}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                  
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Required Excel Format:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• <strong>Student Name</strong> - Full name (required)</li>
+                      <li>• <strong>Age</strong> - Number between 1-18 (required)</li>
+                      <li>• <strong>Gender</strong> - MALE, FEMALE, or OTHER (required)</li>
+                      <li>• <strong>Grade</strong> - Class/grade (required)</li>
+                      <li>• <strong>Roll Number</strong> - Student ID (required)</li>
+                      <li>• <strong>Parent 1 Name</strong> - Primary parent name (required)</li>
+                      <li>• <strong>Parent 1 Email</strong> - Valid email (required)</li>
+                      <li>• <strong>Parent 1 Phone</strong> - Phone number (required)</li>
+                      <li>• <strong>Parent 1 Relationship</strong> - MOTHER, FATHER, GUARDIAN, OTHER</li>
+                      <li>• <strong>Permission fields</strong> - Use TRUE or FALSE</li>
+                    </ul>
                   </div>
-                )}
+                  
+                  <div className="bg-amber-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-amber-900 mb-2">⚠️ Common Issues:</h4>
+                    <ul className="text-sm text-amber-800 space-y-1">
+                      <li>• Make sure all required fields are filled</li>
+                      <li>• Gender must be exactly: MALE, FEMALE, or OTHER</li>
+                      <li>• Age must be a number between 1-18</li>
+                      <li>• Email addresses must be valid format</li>
+                      <li>• Use TRUE/FALSE (not Yes/No) for permission fields</li>
+                      <li>• No duplicate students in the same file</li>
+                    </ul>
+                  </div>
+                </div>
 
                 <div className="flex justify-between pt-4 mt-6 border-t">
                   <Button 
@@ -741,14 +690,13 @@ export function Students() {
                       setShowBulkUpload(false);
                       setUploadStep('select');
                       setUploadFile(null);
-                      setUploadPreview(null);
                     }}
                   >
                     Cancel
                   </Button>
-                  {uploadStep === 'preview' && uploadPreview && uploadPreview.totalErrors === 0 && (
+                  {uploadFile && (
                     <Button 
-                      onClick={() => uploadFile && bulkUploadMutation.mutate(uploadFile)}
+                      onClick={() => bulkUploadMutation.mutate(uploadFile)}
                       disabled={bulkUploadMutation.isPending}
                       className="flex items-center gap-2"
                     >
@@ -756,8 +704,8 @@ export function Students() {
                         <>Processing...</>
                       ) : (
                         <>
-                          <CheckCircle className="h-4 w-4" />
-                          Upload {uploadPreview.totalRecords} Students
+                          <Upload className="h-4 w-4" />
+                          Upload Students
                         </>
                       )}
                     </Button>
