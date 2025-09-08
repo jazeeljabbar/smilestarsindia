@@ -8,7 +8,7 @@ import {
   magicLinkRequestSchema, magicLinkConsumeSchema, acceptAgreementsSchema,
   createUserSchema, createMembershipSchema, inviteUserSchema,
   insertEntitySchema, insertCampSchema, insertScreeningSchema, insertReportSchema,
-  User, Entity, Membership
+  User, Entity, Membership, InsertParentStudentLink, InsertAuditLog
 } from "@shared/schema";
 
 // Extend Express Request type to include user
@@ -107,6 +107,133 @@ router.get('/schools/:schoolId/students', authenticateToken, async (req: Authent
   } catch (error) {
     console.error('Error fetching students:', error);
     res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// Enhanced student registration with multiple parents
+router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'DENTIST', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { name, age, gender, grade, rollNumber, schoolId, parents, campId } = req.body;
+
+    // Validation
+    if (!name || !age || !gender || !grade || !rollNumber || !schoolId || !parents || !Array.isArray(parents) || parents.length === 0 || !campId) {
+      return res.status(400).json({ error: 'Missing required fields or invalid parent data' });
+    }
+
+    // Verify school exists
+    const school = await storage.getEntityById(schoolId);
+    if (!school || school.type !== 'SCHOOL') {
+      return res.status(400).json({ error: 'Invalid school selected' });
+    }
+
+    // Verify camp exists
+    const camp = await storage.getCampById(campId);
+    if (!camp) {
+      return res.status(400).json({ error: 'Invalid camp selected' });
+    }
+
+    // Check for duplicate student (same name + school combination)
+    const existingStudents = await storage.getStudentsBySchool(schoolId);
+    const duplicateStudent = existingStudents.find(student => 
+      student.name.toLowerCase() === name.toLowerCase() ||
+      (student.metadata?.rollNumber && student.metadata.rollNumber === rollNumber)
+    );
+
+    if (duplicateStudent) {
+      return res.status(400).json({ 
+        error: 'Student already exists', 
+        message: `A student with the same name or roll number already exists in this school.`
+      });
+    }
+
+    // Create student entity
+    const studentData = {
+      type: 'STUDENT' as const,
+      name,
+      status: 'ACTIVE' as const,
+      parentId: schoolId, // Students belong to schools
+      metadata: {
+        age,
+        gender,
+        grade,
+        rollNumber,
+        campId,
+      }
+    };
+
+    const student = await storage.createEntity(studentData);
+
+    // Process each parent - create users and relationships
+    const parentUsers = [];
+    for (const parentData of parents) {
+      const { name: parentName, email, phone, occupation, relationship, hasCustody, canPickup, emergencyContact, medicalDecisions } = parentData;
+
+      // Check if parent user already exists
+      let parentUser = await storage.getUserByEmail(email);
+      
+      if (!parentUser) {
+        // Create new parent user
+        const userData = {
+          email,
+          name: parentName,
+          phone,
+          status: 'ACTIVE' as const
+        };
+        
+        parentUser = await storage.createUser(userData);
+
+        // Create membership with PARENT role
+        await storage.createMembership({
+          userId: parentUser.id,
+          entityId: schoolId, // Parents are associated with the school
+          role: 'PARENT',
+          isPrimary: false
+        });
+      }
+
+      // Create parent-student relationship
+      await storage.createParentStudentLink({
+        parentUserId: parentUser.id,
+        studentEntityId: student.id,
+        relationship,
+        custodyFlags: {
+          hasCustody: hasCustody || false,
+          canPickup: canPickup || false,
+          emergencyContact: emergencyContact || false,
+          medicalDecisions: medicalDecisions || false,
+        }
+      });
+
+      parentUsers.push({
+        id: parentUser.id,
+        name: parentUser.name,
+        email: parentUser.email,
+        relationship
+      });
+    }
+
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'CREATE_STUDENT',
+      entityId: student.id,
+      metadata: { 
+        studentName: student.name, 
+        schoolId, 
+        campId,
+        parentCount: parents.length 
+      }
+    });
+
+    res.json({
+      student,
+      parents: parentUsers,
+      message: `Student ${name} registered successfully with ${parents.length} parent(s).`
+    });
+
+  } catch (error) {
+    console.error('Student registration error:', error);
+    res.status(500).json({ error: 'Failed to register student' });
   }
 });
 
