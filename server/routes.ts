@@ -228,6 +228,15 @@ router.post('/auth/magic-link/consume', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check user status before proceeding
+    if (user.status === 'SUSPENDED') {
+      return res.status(403).json({ 
+        error: 'Account suspended', 
+        message: 'Your account has been suspended. Please contact admin@smilestarsindia.com for assistance.',
+        status: 'SUSPENDED'
+      });
+    }
+
     // Mark token as used
     await storage.markMagicTokenUsed(token);
 
@@ -329,6 +338,15 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       });
     }
 
+    // Check user status before password verification
+    if (user.status === 'SUSPENDED') {
+      return res.status(403).json({ 
+        error: 'Account suspended', 
+        message: 'Your account has been suspended. Please contact admin@smilestarsindia.com for assistance.',
+        status: 'SUSPENDED'
+      });
+    }
+
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
@@ -381,6 +399,49 @@ router.post('/auth/login', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Password login error:', error);
     res.status(500).json({ error: 'Failed to process login' });
+  }
+});
+
+// Accept agreements endpoint
+router.post('/auth/accept-agreements', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { agreementIds } = req.body;
+    
+    if (!agreementIds || !Array.isArray(agreementIds)) {
+      return res.status(400).json({ error: 'Agreement IDs are required' });
+    }
+
+    const userId = req.user!.id;
+    
+    // Create acceptance records for each agreement
+    for (const agreementId of agreementIds) {
+      await storage.createAcceptance({
+        userId,
+        agreementId,
+        acceptedAt: new Date(),
+        ipAddress: req.ip || 'unknown'
+      });
+    }
+
+    // Update user status to ACTIVE after accepting agreements
+    await storage.updateUser(userId, { status: 'ACTIVE' });
+
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: userId,
+      action: 'ACCEPT_AGREEMENTS',
+      targetId: userId,
+      targetType: 'USER',
+      metadata: {
+        agreementIds: agreementIds.join(', '),
+        totalAgreements: agreementIds.length
+      }
+    });
+
+    res.json({ success: true, message: 'Agreements accepted successfully' });
+  } catch (error) {
+    console.error('Accept agreements error:', error);
+    res.status(500).json({ error: 'Failed to accept agreements' });
   }
 });
 

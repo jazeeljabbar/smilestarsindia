@@ -51,6 +51,18 @@ export function Login() {
       const result = await response.json();
 
       if (response.ok) {
+        // Handle pending agreements for PENDING status users
+        if (result.user.status === 'PENDING' && result.requiresAgreements) {
+          // Store token temporarily
+          localStorage.setItem('pendingToken', result.token);
+          localStorage.setItem('pendingUser', JSON.stringify(result.user));
+          localStorage.setItem('pendingAgreements', JSON.stringify(result.pendingAgreements));
+          
+          // Redirect to agreement page
+          setLocation('/auth/agreements');
+          return;
+        }
+        
         // Store the token and user data
         localStorage.setItem('token', result.token);
         localStorage.setItem('user', JSON.stringify(result.user));
@@ -66,7 +78,10 @@ export function Login() {
         // Redirect to dashboard (will be handled by role-based routing)
         setLocation('/dashboard');
       } else {
-        if (result.requiresMagicLink) {
+        // Handle different error types
+        if (result.status === 'SUSPENDED') {
+          setError(`${result.error}: ${result.message}`);
+        } else if (result.requiresMagicLink) {
           setError(result.error + ' Please contact your administrator.');
         } else {
           setError(result.error || 'Login failed');

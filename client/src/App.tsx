@@ -16,6 +16,7 @@ import { Students } from '@/pages/Students';
 import { Reports } from '@/pages/Reports';
 import { ParentPortal } from '@/pages/ParentPortal';
 import { FranchiseAgreement } from '@/pages/FranchiseAgreement';
+import { AgreementPage } from '@/pages/AgreementPage';
 import { Franchisees } from '@/pages/Franchisees';
 import NotFound from '@/pages/not-found';
 import { AuthProvider, useAuth } from '@/lib/auth.tsx';
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/login" component={Login} />
         <Route path="/auth/magic-link" component={MagicLink} />
         <Route path="/auth/simple-auth" component={SimpleAuth} />
+        <Route path="/auth/agreements" component={AgreementPage} />
         <Route path="/franchise/accept-agreement" component={FranchiseAgreement} />
         <Route component={HomePage} /> {/* Default to homepage */}
       </Switch>
