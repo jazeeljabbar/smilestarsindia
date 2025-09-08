@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Users, Search, Filter, Eye, FileText } from 'lucide-react';
+import { Plus, Users, Search, Filter, Eye, FileText, X, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ScreeningForm } from '@/components/ScreeningForm';
@@ -18,7 +20,20 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
 import { colorSchemes } from '@/lib/colorSchemes';
 
-// Student form schema
+// Parent form schema
+const parentSchema = z.object({
+  name: z.string().min(1, 'Parent name is required'),
+  email: z.string().email('Valid email is required'),
+  phone: z.string().min(10, 'Valid phone number is required'),
+  occupation: z.string().optional(),
+  relationship: z.enum(['MOTHER', 'FATHER', 'GUARDIAN', 'OTHER'], { required_error: 'Relationship is required' }),
+  hasCustody: z.boolean().default(true),
+  canPickup: z.boolean().default(true),
+  emergencyContact: z.boolean().default(false),
+  medicalDecisions: z.boolean().default(false),
+});
+
+// Student form schema with multiple parents
 const studentFormSchema = z.object({
   name: z.string().min(1, 'Student name is required'),
   age: z.number().min(1, 'Age must be at least 1').max(18, 'Age must be less than 18'),
@@ -26,10 +41,7 @@ const studentFormSchema = z.object({
   grade: z.string().min(1, 'Grade is required'),
   rollNumber: z.string().min(1, 'Roll number is required'),
   schoolId: z.number().min(1, 'School selection is required'),
-  parentName: z.string().min(1, 'Parent name is required'),
-  parentPhone: z.string().min(10, 'Valid phone number is required'),
-  parentEmail: z.string().email('Valid email is required'),
-  parentOccupation: z.string().optional(),
+  parents: z.array(parentSchema).min(1, 'At least one parent is required').max(4, 'Maximum 4 parents allowed'),
   campId: z.number().min(1, 'Camp selection is required'),
 });
 
@@ -44,6 +56,31 @@ export function Students() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCamp, setSelectedCamp] = useState<string>('all');
+
+  // Helper functions for managing parents
+  const addParent = () => {
+    const currentParents = form.getValues().parents;
+    if (currentParents.length < 4) {
+      form.setValue('parents', [...currentParents, {
+        name: '',
+        email: '',
+        phone: '',
+        occupation: '',
+        relationship: 'FATHER',
+        hasCustody: true,
+        canPickup: true,
+        emergencyContact: false,
+        medicalDecisions: false,
+      }]);
+    }
+  };
+
+  const removeParent = (index: number) => {
+    const currentParents = form.getValues().parents;
+    if (currentParents.length > 1) {
+      form.setValue('parents', currentParents.filter((_, i) => i !== index));
+    }
+  };
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
     queryKey: ['/api/students', selectedCamp !== 'all' ? { campId: selectedCamp } : {}],
@@ -72,39 +109,28 @@ export function Students() {
       grade: '',
       rollNumber: '',
       schoolId: 0,
-      parentName: '',
-      parentPhone: '',
-      parentEmail: '',
-      parentOccupation: '',
+      parents: [{
+        name: '',
+        email: '',
+        phone: '',
+        occupation: '',
+        relationship: 'MOTHER',
+        hasCustody: true,
+        canPickup: true,
+        emergencyContact: false,
+        medicalDecisions: false,
+      }],
       campId: 0,
     },
   });
 
   const createStudentMutation = useMutation({
     mutationFn: (studentData: StudentFormData) => {
-      // Transform to entity format
-      const entityData = {
-        type: 'STUDENT',
-        name: studentData.name,
-        status: 'ACTIVE',
-        parentId: studentData.schoolId,
-        metadata: {
-          age: studentData.age,
-          gender: studentData.gender,
-          grade: studentData.grade,
-          rollNumber: studentData.rollNumber,
-          parentName: studentData.parentName,
-          parentPhone: studentData.parentPhone,
-          parentEmail: studentData.parentEmail,
-          parentOccupation: studentData.parentOccupation,
-          campId: studentData.campId,
-        }
-      };
-      
-      return apiRequest('/entities', {
+      // Send to new student registration endpoint that handles parents
+      return apiRequest('/students/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entityData),
+        body: JSON.stringify(studentData),
       });
     },
     onSuccess: () => {
@@ -300,58 +326,197 @@ export function Students() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="parentName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Parent/Guardian Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Parent name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="parentPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Parent Phone</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Phone number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="parentEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Parent Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="Email address" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="parentOccupation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Parent Occupation</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Occupation" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      
+                      {/* Parents Section */}
+                      <div className="md:col-span-2">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold">Parent/Guardian Information</h3>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addParent}
+                            disabled={form.getValues().parents.length >= 4}
+                            className="flex items-center gap-2"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Add Parent
+                          </Button>
+                        </div>
+
+                        {form.watch('parents').map((parent, index) => (
+                          <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium">Parent {index + 1}</h4>
+                              {form.getValues().parents.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeParent(index)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <FormField
+                                control={form.control}
+                                name={`parents.${index}.name`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Full Name *</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Parent full name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name={`parents.${index}.relationship`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Relationship *</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select relationship" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="MOTHER">Mother</SelectItem>
+                                        <SelectItem value="FATHER">Father</SelectItem>
+                                        <SelectItem value="GUARDIAN">Guardian</SelectItem>
+                                        <SelectItem value="OTHER">Other</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name={`parents.${index}.email`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Email Address *</FormLabel>
+                                    <FormControl>
+                                      <Input type="email" placeholder="parent@example.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name={`parents.${index}.phone`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Phone Number *</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="+91-9876543210" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name={`parents.${index}.occupation`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Occupation</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Occupation (optional)" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            <Separator className="my-3" />
+                            
+                            {/* Custody and Permissions */}
+                            <div className="space-y-3">
+                              <h5 className="text-sm font-medium text-gray-700">Permissions & Custody</h5>
+                              <div className="grid grid-cols-2 gap-3">
+                                <FormField
+                                  control={form.control}
+                                  name={`parents.${index}.hasCustody`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                        <Checkbox 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange} 
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="text-sm">Has Legal Custody</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`parents.${index}.canPickup`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                        <Checkbox 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange} 
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="text-sm">Can Pick Up Student</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`parents.${index}.emergencyContact`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                        <Checkbox 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange} 
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="text-sm">Emergency Contact</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`parents.${index}.medicalDecisions`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                        <Checkbox 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange} 
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="text-sm">Medical Decisions</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex justify-end space-x-2 pt-4">
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
