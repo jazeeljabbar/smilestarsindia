@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// Note: Using div with overflow-y-auto instead of ScrollArea for now
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth.tsx';
@@ -165,14 +165,14 @@ export function AgreementPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-48 w-full rounded-md border p-4">
+                <div className="h-48 w-full rounded-md border p-4 overflow-y-auto">
                   <div className="prose prose-sm max-w-none">
                     {/* Render markdown content as plain text for now */}
                     <pre className="whitespace-pre-wrap text-sm">
                       {agreement.bodyMd}
                     </pre>
                   </div>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           ))}
