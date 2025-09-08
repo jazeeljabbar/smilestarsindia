@@ -846,7 +846,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     await storage.createAuditLog({
       actorUserId: req.user!.id,
       action: 'BULK_CREATE_STUDENTS',
-      entityId: defaultSchoolId || 0,
+      entityId: targetSchoolId || 0,
       metadata: { 
         totalUploaded: results.filter(r => !r.error).length,
         totalFailed: results.filter(r => r.error).length,
@@ -858,7 +858,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
       success: true,
       message: `Successfully processed ${results.filter(r => !r.error).length} out of ${results.length} students`,
       results,
-      schoolId: defaultSchoolId
+      schoolId: targetSchoolId
     });
 
   } catch (error) {
