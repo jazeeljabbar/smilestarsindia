@@ -1790,9 +1790,16 @@ router.get('/camps/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']),
 });
 
 // Create camp
-router.post('/camps', authenticateToken, requireRole(['FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/camps', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const campData = insertCampSchema.parse(req.body);
+    // Convert date strings to Date objects before schema validation
+    const requestBody = {
+      ...req.body,
+      startDate: new Date(req.body.startDate),
+      endDate: new Date(req.body.endDate)
+    };
+    
+    const campData = insertCampSchema.parse(requestBody);
     campData.createdBy = req.user!.id;
     
     const camp = await storage.createCamp(campData);
