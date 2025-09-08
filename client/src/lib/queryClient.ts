@@ -25,7 +25,8 @@ export async function apiRequest(
 ): Promise<any> {
   const token = localStorage.getItem('token');
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    // Don't set Content-Type for FormData - let browser set it with boundary
+    ...(!(options?.body instanceof FormData) && { 'Content-Type': 'application/json' }),
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(options?.headers || {}),
   };

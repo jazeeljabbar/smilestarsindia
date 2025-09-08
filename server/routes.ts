@@ -30,17 +30,31 @@ const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log('File filter called:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype
+    });
+    
     const allowedTypes = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
-      'text/csv'
+      'text/csv',
+      'application/octet-stream' // Sometimes Excel files come as this
     ];
-    if (allowedTypes.includes(file.mimetype)) {
+    
+    const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+    const hasValidExtension = allowedExtensions.some(ext => 
+      file.originalname.toLowerCase().endsWith(ext)
+    );
+    
+    if (allowedTypes.includes(file.mimetype) || hasValidExtension) {
       cb(null, true);
     } else {
+      console.log('File rejected:', file.mimetype, file.originalname);
       cb(new Error('Only Excel and CSV files are allowed'));
     }
   }
