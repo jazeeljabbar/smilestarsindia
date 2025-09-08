@@ -292,6 +292,50 @@ export default function SchoolAdminDashboard() {
         </div>
       </div>
 
+      {/* School Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <SchoolIcon className="h-5 w-5 mr-2" />
+            School Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">School Name</p>
+              <p className="text-lg font-semibold">{school.name}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Location</p>
+              <p className="text-lg font-semibold">{school.city}, {school.state} {school.pincode}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Contact Person</p>
+              <p className="text-lg font-semibold">{school.contactPerson}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Contact Phone</p>
+              <p className="text-lg font-semibold">{school.contactPhone}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Contact Email</p>
+              <p className="text-lg font-semibold">{school.contactEmail}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Status</p>
+              <Badge className={
+                school.status === 'ACTIVE' 
+                  ? 'bg-green-100 text-green-800 border-green-200'
+                  : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+              }>
+                {school.status === 'ACTIVE' ? 'Active' : 'Pending Agreement'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
