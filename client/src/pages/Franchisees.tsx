@@ -160,10 +160,10 @@ export function Franchisees() {
 
   const deleteFranchiseMutation = useMutation({
     mutationFn: async (franchiseId: number) => {
-      const response = await apiRequest(`/api/franchises/${franchiseId}`, {
+      const response = await apiRequest(`/franchises/${franchiseId}`, {
         method: 'DELETE',
       });
-      return response.json();
+      return response; // apiRequest already returns parsed JSON
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/franchises'] });
