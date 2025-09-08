@@ -536,10 +536,14 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     });
     
     // Parse Excel file
+    console.log('Parsing Excel file...');
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
+    console.log('Sheet name:', sheetName);
     const worksheet = workbook.Sheets[sheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    console.log('Raw Excel data:', jsonData.length, 'rows');
+    console.log('First row sample:', jsonData[0]);
 
     if (!jsonData.length) {
       return res.status(400).json({ error: 'Excel file is empty' });
