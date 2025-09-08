@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/lib/auth.tsx';
 import { useLocation } from 'wouter';
+import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Dashboard() {
   const { user, token } = useAuth();
@@ -213,7 +214,7 @@ export function Dashboard() {
             <CardContent className="space-y-3">
               {hasRole('DENTIST') && (
                 <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                  className={`w-full ${colorSchemes.reports.primary} justify-start`}
                   onClick={() => setShowScreeningForm(true)}
                 >
                   <Stethoscope className="h-4 w-4 mr-2" />
@@ -224,14 +225,14 @@ export function Dashboard() {
               {hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN']) && (
                 <>
                   <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.users.primary} justify-start`}
                     onClick={() => setLocation('/users')}
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Create Users
                   </Button>
                   <Button 
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.franchisees.primary} justify-start`}
                     onClick={() => setShowFranchiseeDialog(true)}
                   >
                     <Building2 className="h-4 w-4 mr-2" />
@@ -243,28 +244,28 @@ export function Dashboard() {
               {hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']) && (
                 <>
                   <Button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.schools.primary} justify-start`}
                     onClick={() => setLocation('/schools?register=true')}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Register New School
                   </Button>
                   <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.camps.primary} justify-start`}
                     onClick={() => setLocation('/camps')}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
                     Schedule Camp
                   </Button>
                   <Button 
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.students.primary} justify-start`}
                     onClick={() => setLocation('/students')}
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Register Students
                   </Button>
                   <Button 
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white justify-start"
+                    className={`w-full ${colorSchemes.reports.primary} justify-start`}
                     onClick={() => setLocation('/reports')}
                   >
                     <FileText className="h-4 w-4 mr-2" />
