@@ -105,8 +105,8 @@ export function Layout({ children }: LayoutProps) {
       }
     }
     
-    // Parent users only see Reports
-    if (hasRole('PARENT') && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN'])) {
+    // Parent-only users only see Reports (exclude users who have admin roles)
+    if (hasRole('PARENT') && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'])) {
       return item.name === 'Reports';
     }
     
