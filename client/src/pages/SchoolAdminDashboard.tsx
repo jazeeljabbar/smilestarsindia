@@ -273,52 +273,22 @@ export default function SchoolAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg text-white p-6">
-        <div className="flex justify-between items-start">
+      {/* Welcome Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 text-white">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}!</h1>
-            <p className="text-green-100 mb-2">
-              {school.city}, {school.state} • {school.pincode}
+            <p className="text-blue-100">
+              Managing {school.name} - {school.city}, {school.state}
             </p>
-            <p className="text-green-100 mt-1 mb-2">
-              Contact: {school.contactPerson} • {school.contactPhone}
-            </p>
-            <div className="mt-3">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+            <div className="mt-2">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                 <SchoolIcon className="h-4 w-4 mr-2" />
                 {school.name}
               </span>
             </div>
           </div>
-          <div className="text-right">
-            <Badge 
-              variant={school.agreementStatus === 'accepted' ? 'default' : 'secondary'}
-              className={school.agreementStatus === 'accepted' 
-                ? 'bg-green-500 hover:bg-green-600' 
-                : 'bg-yellow-500 hover:bg-yellow-600'
-              }
-            >
-              {school.agreementStatus === 'accepted' ? (
-                <>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Active
-                </>
-              ) : (
-                'Pending Agreement'
-              )}
-            </Badge>
-            {school.agreementStatus === 'pending' && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                onClick={() => setShowAgreement(true)}
-              >
-                Review Agreement
-              </Button>
-            )}
-          </div>
+          <SchoolIcon className="h-12 w-12 text-blue-200" />
         </div>
       </div>
 
