@@ -9,16 +9,15 @@ const server = createServer(app);
 
 // Middleware
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 
-// Skip JSON parsing for file upload routes
-app.use('/api', (req, res, next) => {
-  if (req.path === '/students/bulk-upload' || req.path === '/students/template') {
+// Apply JSON parsing only to non-upload routes
+app.use((req, res, next) => {
+  if (req.path.includes('/students/bulk-upload') || req.path.includes('/students/template')) {
     return next();
   }
   express.json({ limit: '10mb' })(req, res, next);
 });
-
-app.use(express.urlencoded({ extended: true }));
 
 // API routes
 app.use('/api', apiRoutes);

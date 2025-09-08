@@ -334,10 +334,21 @@ router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN',
 
 // Bulk upload students
 router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN']), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
+  console.log('Bulk upload started');
+  console.log('User:', req.user?.email);
+  console.log('File received:', req.file ? 'Yes' : 'No');
+  
   try {
     if (!req.file) {
+      console.log('No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+    
+    console.log('File details:', {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
     
     // Parse Excel file
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -621,7 +632,8 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
 
   } catch (error) {
     console.error('Bulk upload error:', error);
-    res.status(500).json({ error: 'Failed to process bulk upload' });
+    console.error('Error details:', error);
+    res.status(500).json({ error: 'Failed to process bulk upload: ' + (error as Error).message });
   }
 });
 
