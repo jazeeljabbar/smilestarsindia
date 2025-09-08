@@ -401,12 +401,17 @@ router.post('/auth/accept-agreements', authenticateToken, async (req: Authentica
     
     // Create acceptance records for each agreement
     for (const agreementId of agreementIds) {
-      await storage.createAcceptance({
-        userId,
-        agreementId,
-        acceptedAt: new Date(),
-        ipAddress: req.ip || 'unknown'
-      });
+      const agreement = await storage.getAgreementById(agreementId);
+      if (agreement) {
+        await storage.createAgreementAcceptance({
+          userId,
+          agreementId,
+          version: agreement.version,
+          acceptedAt: new Date(),
+          ip: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || null
+        });
+      }
     }
 
     // Update user status to ACTIVE after accepting agreements
