@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
-import { MailService } from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import { storage } from "./storage";
 import { 
   magicLinkRequestSchema, magicLinkConsumeSchema, acceptAgreementsSchema,
@@ -24,39 +24,62 @@ interface AuthenticatedRequest extends Request {
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dental-care-secret-key";
 
-// Email setup
-let mailService: MailService | null = null;
-if (process.env.SENDGRID_API_KEY) {
-  mailService = new MailService();
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+// Gmail Email setup
+let mailTransporter: nodemailer.Transporter | null = null;
+
+// Initialize Gmail transporter
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  mailTransporter = nodemailer.createTransporter({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER, // admin@smilestarsindia.com
+      pass: process.env.GMAIL_APP_PASSWORD, // Gmail app password
+    },
+  });
 }
 
-// Email sending function
-async function sendEmail(to: string, subject: string, html: string, from: string = 'admin@smilestarsindia.com') {
+// Email sending function using Gmail
+async function sendEmail(to: string, subject: string, html: string, from?: string) {
+  const fromEmail = from || process.env.GMAIL_USER || 'admin@smilestarsindia.com';
+  
   console.log('=== SENDING EMAIL ===');
   console.log(`To: ${to}`);
-  console.log(`From: ${from}`);
+  console.log(`From: ${fromEmail}`);
   console.log(`Subject: ${subject}`);
   
-  if (mailService && process.env.SENDGRID_API_KEY) {
+  if (mailTransporter && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     try {
-      await mailService.send({
+      await mailTransporter.sendMail({
+        from: fromEmail,
         to,
-        from,
         subject,
         html,
       });
-      console.log(`✅ Email sent successfully to ${to} via SendGrid`);
+      console.log(`✅ Email sent successfully to ${to} via Gmail`);
       return true;
     } catch (error: any) {
-      console.error('❌ SendGrid email error:', error);
-      console.error('SendGrid error details:', error.response?.body);
+      console.error('❌ Gmail email error:', error);
+      
+      // Log helpful instructions for fixing Gmail
+      console.log('');
+      console.log('🔧 TO FIX GMAIL EMAIL ISSUE:');
+      console.log('1. Make sure GMAIL_USER is set to admin@smilestarsindia.com');
+      console.log('2. Generate an App Password for Gmail (not your regular password)');
+      console.log('3. Set GMAIL_APP_PASSWORD environment variable to the app password');
+      console.log('4. Ensure 2-factor authentication is enabled on the Gmail account');
+      console.log('');
+      
       return false;
     }
   } else {
-    console.log('📧 No SendGrid API key configured, logging email to console:');
+    console.log('📧 No Gmail credentials configured, logging email to console:');
     console.log('Subject:', subject);
     console.log('HTML:', html);
+    console.log('');
+    console.log('🔧 TO SETUP GMAIL:');
+    console.log('1. Set GMAIL_USER=admin@smilestarsindia.com');
+    console.log('2. Set GMAIL_APP_PASSWORD=your_gmail_app_password');
+    console.log('');
     return false;
   }
 }
@@ -200,7 +223,7 @@ router.post('/auth/magic-link/request', async (req: Request, res: Response) => {
       <p>If you didn't request this login, please ignore this email.</p>
     `;
 
-    await sendEmail(email, 'Login to Smile Stars India', emailHtml, 'admin@smilestarsindia.com');
+    await sendEmail(email, 'Login to Smile Stars India', emailHtml);
 
     res.json({ message: 'Magic link sent to your email' });
   } catch (error) {
@@ -1266,7 +1289,7 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
       <p>Best regards,<br>Smile Stars India Team</p>
     `;
     
-    await sendEmail(contactEmail, 'Welcome to Smile Stars India - Complete Your Franchise Setup', emailHtml, 'admin@smilestarsindia.com');
+    await sendEmail(contactEmail, 'Welcome to Smile Stars India - Complete Your Franchise Setup', emailHtml);
     
     await storage.createAuditLog({
       actorUserId: req.user!.id,

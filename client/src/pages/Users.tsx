@@ -265,7 +265,9 @@ export function Users() {
 
   const onEditSubmit = (data: EditUserFormData) => {
     if (!editingUser) return;
-    updateUserMutation.mutate({ id: editingUser.id, data });
+    // Remove username from data to prevent backend error (usernames cannot be updated)
+    const { username, ...updateData } = data;
+    updateUserMutation.mutate({ id: editingUser.id, data: updateData });
   };
 
   const handleEdit = (user: User) => {
