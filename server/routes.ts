@@ -1796,12 +1796,19 @@ router.get('/camps/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']),
 // Create camp
 router.post('/camps', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('Camp creation request body:', req.body);
+    console.log('Start date type:', typeof req.body.startDate);
+    console.log('End date type:', typeof req.body.endDate);
+    
     // Convert date strings to Date objects before schema validation
     const requestBody = {
       ...req.body,
-      startDate: new Date(req.body.startDate),
-      endDate: new Date(req.body.endDate)
+      startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+      endDate: req.body.endDate ? new Date(req.body.endDate) : undefined
     };
+    
+    console.log('Converted request body:', requestBody);
+    console.log('Converted start date type:', typeof requestBody.startDate);
     
     const campData = insertCampSchema.parse(requestBody);
     campData.createdBy = req.user!.id;
