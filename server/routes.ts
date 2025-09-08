@@ -351,7 +351,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     // Create JWT token
     const jwtToken = jwt.sign(
       { 
-        userId: user.id, 
+        id: user.id,  // Fixed: using 'id' to match magic link login
         email: user.email,
         roles,
         entityIds 
