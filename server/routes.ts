@@ -1771,10 +1771,11 @@ router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: R
   try {
     const camps = await storage.getAllCamps();
     
-    // Add school information to each camp
+    // Add school information and enrolled students count to each camp
     const campsWithSchools = await Promise.all(
       camps.map(async (camp) => {
         const school = await storage.getEntityById(camp.schoolEntityId);
+        const enrolledStudents = await storage.getEnrolledStudentsByCamp(camp.id);
         return {
           ...camp,
           school: school ? {
@@ -1782,7 +1783,8 @@ router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: R
             name: school.name,
             city: school.metadata?.city || '',
             state: school.metadata?.state || ''
-          } : null
+          } : null,
+          enrolledCount: enrolledStudents.length
         };
       })
     );
@@ -2643,6 +2645,11 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
     const { campId, franchiseeId, schoolId, page = '1', pageSize = '20', search } = req.query;
     const students = await storage.getEntitiesByType('STUDENT');
     
+    console.log('DEBUG Students endpoint:');
+    console.log('- Total students in DB:', students.length);
+    console.log('- User roles:', req.user!.roles);
+    console.log('- User entityIds:', req.user!.entityIds);
+    
     // Filter based on user access and role
     const accessibleEntityIds = req.user!.entityIds;
     let filteredStudents = students;
@@ -2668,8 +2675,17 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
           const franchiseeSchools = allSchools.filter(school => franchiseeIds.includes(school.parentId || 0));
           const franchiseeSchoolIds = franchiseeSchools.map(school => school.id);
           filteredStudents = students.filter(student => franchiseeSchoolIds.includes(student.parentId || 0));
+          
+          console.log('- Franchise filtering:');
+          console.log('  - Franchise memberships:', franchiseeMemberships.length);
+          console.log('  - Franchisee IDs:', franchiseeIds);
+          console.log('  - All schools:', allSchools.length);
+          console.log('  - Franchisee schools:', franchiseeSchools.length);
+          console.log('  - Franchisee school IDs:', franchiseeSchoolIds);
+          console.log('  - Filtered students:', filteredStudents.length);
         } else {
           filteredStudents = [];
+          console.log('- No franchise memberships found');
         }
       } else {
         // School admins and other roles see students based on direct entity access
