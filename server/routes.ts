@@ -1019,6 +1019,30 @@ router.get('/camps', authenticateToken, async (req: AuthenticatedRequest, res: R
   }
 });
 
+// Get camps for current school admin's school
+router.get('/camps/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get user's school membership to find which school they manage
+    const memberships = await storage.getMembershipsByUser(req.user!.id);
+    const schoolMembership = memberships.find(m => m.role === 'SCHOOL_ADMIN');
+    
+    if (!schoolMembership) {
+      return res.status(404).json({ error: 'No school found for this admin' });
+    }
+    
+    const schoolEntityId = schoolMembership.entityId;
+    
+    // Get all camps and filter for this school
+    const allCamps = await storage.getAllCamps();
+    const schoolCamps = allCamps.filter(camp => camp.schoolEntityId === schoolEntityId);
+    
+    res.json(schoolCamps);
+  } catch (error) {
+    console.error('Get school camps error:', error);
+    res.status(500).json({ error: 'Failed to get school camps' });
+  }
+});
+
 // Create camp
 router.post('/camps', authenticateToken, requireRole(['FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -1614,6 +1638,29 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
   } catch (error) {
     console.error('Get students error:', error);
     res.status(500).json({ error: 'Failed to get students' });
+  }
+});
+
+// Get students for current school admin's school
+router.get('/students/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get user's school membership to find which school they manage
+    const memberships = await storage.getMembershipsByUser(req.user!.id);
+    const schoolMembership = memberships.find(m => m.role === 'SCHOOL_ADMIN');
+    
+    if (!schoolMembership) {
+      return res.status(404).json({ error: 'No school found for this admin' });
+    }
+    
+    const schoolEntityId = schoolMembership.entityId;
+    
+    // Get students for this school using the existing method
+    const schoolStudents = await storage.getStudentsBySchool(schoolEntityId);
+    
+    res.json(schoolStudents || []);
+  } catch (error) {
+    console.error('Get school students error:', error);
+    res.status(500).json({ error: 'Failed to get school students' });
   }
 });
 

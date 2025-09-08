@@ -105,9 +105,9 @@ export default function SchoolAdminDashboard() {
     );
   }
 
-  const activeCamps = camps.filter(camp => camp.status === 'active').length;
-  const totalStudents = students.length;
-  const completedCamps = camps.filter(camp => camp.status === 'completed').length;
+  const activeCamps = camps?.filter(camp => camp.status === 'active').length || 0;
+  const totalStudents = students?.length || 0;
+  const completedCamps = camps?.filter(camp => camp.status === 'completed').length || 0;
 
   // If agreement is pending, show only the agreement modal
   if (shouldShowAgreement) {
