@@ -170,9 +170,9 @@ export function Camps() {
     // Prepare data for API
     const campData = {
       name: formData.name,
-      schoolId: parseInt(schoolId),
-      startDate: formData.startDate,
-      endDate: formData.endDate,
+      schoolEntityId: parseInt(schoolId),
+      startDate: new Date(formData.startDate),
+      endDate: new Date(formData.endDate),
       expectedStudents: parseInt(formData.expectedStudents),
       status: formData.status,
       description: formData.description,
