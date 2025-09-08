@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth.tsx';
 import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Camps() {
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -148,10 +148,19 @@ export function Camps() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Dental Camps</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back, {user?.name}!</h1>
           <p className="text-gray-600">
             Schedule and manage dental camps across registered schools
           </p>
+          {/* Show role-specific context information */}
+          {activeRole && (
+            <div className="mt-3">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                <Calendar className="h-4 w-4 mr-2" />
+                {activeRole.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())} - Camps Management
+              </span>
+            </div>
+          )}
         </div>
         {(user?.role === 'admin' || user?.role === 'franchisee') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

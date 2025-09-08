@@ -18,7 +18,7 @@ import { useLocation } from 'wouter';
 import { colorSchemes } from '@/lib/colorSchemes';
 
 export function Dashboard() {
-  const { user, token } = useAuth();
+  const { user, token, activeRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showScreeningForm, setShowScreeningForm] = useState(false);
@@ -174,10 +174,22 @@ export function Dashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back, {user?.name}!</h1>
         <p className="text-gray-600">
-          Welcome back, {user?.name}. Here's your overview of dental camp activities.
+          Here's your overview of dental camp activities.
         </p>
+        {/* Show role-specific context information */}
+        {activeRole && (
+          <div className="mt-3">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              {activeRole === 'TEACHER' && <School className="h-4 w-4 mr-2" />}
+              {activeRole === 'DENTIST' && <Stethoscope className="h-4 w-4 mr-2" />}
+              {activeRole === 'ORG_ADMIN' && <Building2 className="h-4 w-4 mr-2" />}
+              {activeRole === 'SYSTEM_ADMIN' && <Building2 className="h-4 w-4 mr-2" />}
+              {activeRole.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())} Dashboard
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Top Section: Stats Cards + Quick Actions */}

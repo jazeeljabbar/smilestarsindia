@@ -9,10 +9,12 @@ import { toast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { School, Camp, Student } from '@shared/schema';
 import { School as SchoolIcon, Users, Calendar, GraduationCap, FileText, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth.tsx';
 
 export default function SchoolAdminDashboard() {
   console.log('SchoolAdminDashboard component rendered');
   const [showAgreement, setShowAgreement] = useState(false);
+  const { user } = useAuth();
 
   // Get current user's school
   const { data: school, isLoading, error } = useQuery<School>({
@@ -185,13 +187,19 @@ export default function SchoolAdminDashboard() {
       <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg text-white p-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold mb-2">{school.name}</h1>
-            <p className="text-green-100">
+            <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}!</h1>
+            <p className="text-green-100 mb-2">
               {school.city}, {school.state} • {school.pincode}
             </p>
-            <p className="text-green-100 mt-1">
+            <p className="text-green-100 mt-1 mb-2">
               Contact: {school.contactPerson} • {school.contactPhone}
             </p>
+            <div className="mt-3">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <SchoolIcon className="h-4 w-4 mr-2" />
+                {school.name}
+              </span>
+            </div>
           </div>
           <div className="text-right">
             <Badge 
