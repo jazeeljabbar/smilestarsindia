@@ -1398,13 +1398,23 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
   try {
     const schools = await storage.getEntitiesByType('SCHOOL');
     
-    // Filter based on user access
-    const accessibleEntityIds = req.user!.entityIds;
-    const filteredSchools = schools.filter(entity => {
+    // Filter schools based on user's entity access and roles
+    const filteredSchools = schools.filter(school => {
+      // System and Org Admins can see all schools
       if (req.user!.roles.includes('SYSTEM_ADMIN') || req.user!.roles.includes('ORG_ADMIN')) {
         return true;
       }
-      return accessibleEntityIds.includes(entity.id) || accessibleEntityIds.includes(entity.parentId || 0);
+      
+      // For franchise admins, only show schools under their franchises
+      if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+        // Get the user's franchise entity IDs from their entityIds
+        const userEntityIds = req.user!.entityIds || [];
+        return userEntityIds.includes(school.parentId || 0);
+      }
+      
+      // For other roles, allow access based on direct entity membership
+      const accessibleEntityIds = req.user!.entityIds || [];
+      return accessibleEntityIds.includes(school.id) || accessibleEntityIds.includes(school.parentId || 0);
     });
 
     res.json(filteredSchools);
