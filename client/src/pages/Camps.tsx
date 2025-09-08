@@ -299,10 +299,10 @@ export function Camps() {
                         </SelectTrigger>
                         <SelectContent>
                           {availableSchools
-                            .filter((school: any) => school.agreementStatus === 'accepted')
+                            .filter((school: any) => school.status === 'ACTIVE' || school.status === 'DRAFT')
                             .map((school: any) => (
                               <SelectItem key={school.id} value={school.id.toString()}>
-                                {school.name} - {school.city}, {school.state}
+                                {school.name} {school.city && school.state ? `- ${school.city}, ${school.state}` : ''}
                               </SelectItem>
                             ))
                           }
