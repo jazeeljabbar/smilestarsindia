@@ -595,7 +595,6 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
     
     // Hash and update password if provided
     if (password && password.trim()) {
-      const bcrypt = require('bcrypt');
       userUpdates.password = await bcrypt.hash(password.trim(), 10);
     }
     
