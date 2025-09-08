@@ -462,9 +462,9 @@ export function Students() {
                             <FormItem>
                               <FormLabel>Franchisee (Optional)</FormLabel>
                               <Select
-                                value={field.value?.toString() || ''}
+                                value={field.value?.toString() || '0'}
                                 onValueChange={(value) => {
-                                  const franchiseeId = value ? parseInt(value) : null;
+                                  const franchiseeId = value && value !== '0' ? parseInt(value) : null;
                                   field.onChange(franchiseeId);
                                   setSelectedFranchiseeId(franchiseeId);
                                   // Reset school selection when franchisee changes
@@ -477,7 +477,7 @@ export function Students() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">All Franchisees</SelectItem>
+                                  <SelectItem value="0">All Franchisees</SelectItem>
                                   {franchisees.map((franchisee: any) => (
                                     <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
                                       {franchisee.name}
@@ -497,7 +497,10 @@ export function Students() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>School</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
+                            <Select 
+                          value={field.value?.toString() || '0'}
+                          onValueChange={(value) => field.onChange(value && value !== '0' ? parseInt(value) : 0)}
+                        >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select school" />
@@ -742,15 +745,15 @@ export function Students() {
                             <div>
                               <label className="text-sm font-medium text-gray-700">Franchisee (Optional)</label>
                               <select
-                                value={selectedFranchiseeId || ''}
+                                value={selectedFranchiseeId || '0'}
                                 onChange={(e) => {
-                                  const franchiseeId = e.target.value ? parseInt(e.target.value) : null;
+                                  const franchiseeId = e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null;
                                   setSelectedFranchiseeId(franchiseeId);
                                   setSelectedBulkSchoolId(null); // Reset school selection
                                 }}
                                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                               >
-                                <option value="">All Franchisees</option>
+                                <option value="0">All Franchisees</option>
                                 {franchisees.map((franchisee: any) => (
                                   <option key={franchisee.id} value={franchisee.id.toString()}>
                                     {franchisee.name}
@@ -765,12 +768,12 @@ export function Students() {
                               School <span className="text-red-500">*</span>
                             </label>
                             <select
-                              value={selectedBulkSchoolId || ''}
-                              onChange={(e) => setSelectedBulkSchoolId(e.target.value ? parseInt(e.target.value) : null)}
+                              value={selectedBulkSchoolId || '0'}
+                              onChange={(e) => setSelectedBulkSchoolId(e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null)}
                               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                               required
                             >
-                              <option value="">Select school</option>
+                              <option value="0">Select school</option>
                               {availableSchools.map((school: any) => (
                                 <option key={school.id} value={school.id.toString()}>
                                   {school.name}
