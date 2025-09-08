@@ -59,9 +59,13 @@ export function Camps() {
 
   // Role-based schools data
   const { data: availableSchools = [] } = useQuery({
-    queryKey: ['/api/schools/list', formData.franchiseeId],
+    queryKey: ['/api/schools/list', formData.franchiseeId, activeRole],
     queryFn: () => {
-      const params = formData.franchiseeId ? `?franchiseeId=${formData.franchiseeId}` : '';
+      // For franchise admins, don't need franchiseeId param as backend filters by their membership
+      // For system/org admins, use franchiseeId if selected
+      const params = (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && formData.franchiseeId 
+        ? `?franchiseeId=${formData.franchiseeId}` 
+        : '';
       return apiRequest(`/schools/list${params}`);
     },
     enabled: activeRole !== 'SCHOOL_ADMIN',
@@ -126,7 +130,7 @@ export function Camps() {
       return;
     }
 
-    // For admin users, validate franchisee selection
+    // For system/org admin users, validate franchisee selection
     if ((activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId) {
       toast({
         title: 'Validation Error',
@@ -249,37 +253,27 @@ export function Camps() {
                     />
                   </div>
 
-                  {/* Franchisee selection - show for System/Org/Franchise Admins */}
-                  {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN' || activeRole === 'FRANCHISE_ADMIN') && (
+                  {/* Franchisee selection - only for System/Org Admins */}
+                  {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && (
                     <div className="space-y-2">
                       <Label htmlFor="franchiseeId">Franchisee</Label>
-                      {activeRole === 'FRANCHISE_ADMIN' ? (
-                        <div className="px-3 py-2 bg-gray-50 border rounded-md">
-                          <p className="font-medium">
-                            {franchisees.find((f: any) => 
-                              user?.memberships?.find((m: any) => m.entityId === f.id && m.role === 'FRANCHISE_ADMIN')
-                            )?.name || 'Your Franchisee'}
-                          </p>
-                        </div>
-                      ) : (
-                        <Select 
-                          value={formData.franchiseeId} 
-                          onValueChange={(value) => {
-                            setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select franchisee" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {franchisees.map((franchisee: any) => (
-                              <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
-                                {franchisee.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Select 
+                        value={formData.franchiseeId} 
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select franchisee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {franchisees.map((franchisee: any) => (
+                            <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                              {franchisee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
