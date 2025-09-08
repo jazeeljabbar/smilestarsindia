@@ -15,10 +15,30 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { insertEntitySchema, type InsertEntity } from '@shared/schema';
+import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
 import { colorSchemes } from '@/lib/colorSchemes';
+
+// School form schema
+const schoolFormSchema = z.object({
+  name: z.string().min(1, 'School name is required'),
+  address: z.string().min(1, 'Address is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  pincode: z.string().min(6, 'Valid pincode is required'),
+  contactPerson: z.string().min(1, 'Contact person is required'),
+  contactPhone: z.string().min(10, 'Valid phone number is required'),
+  contactEmail: z.string().email('Valid email is required'),
+  registrationNumber: z.string().optional(),
+  franchiseId: z.number().optional(),
+  hasSubBranches: z.boolean().default(false),
+  parentSchoolId: z.number().optional(),
+  isActive: z.boolean().default(true),
+});
+
+type SchoolFormData = z.infer<typeof schoolFormSchema>;
 
 export function Schools() {
   const { user, token } = useAuth();
@@ -40,46 +60,25 @@ export function Schools() {
 
   const { data: schools = [], isLoading } = useQuery({
     queryKey: ['/api/schools'],
-    queryFn: async () => {
-      const response = await fetch('/api/schools', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Failed to fetch schools');
-      return response.json();
-    },
+    queryFn: () => apiRequest('/schools'),
   });
 
-  // Fetch franchises for selection
-  const { data: franchises = [] } = useQuery({
-    queryKey: ['/api/franchises'],
-    queryFn: async () => {
-      const response = await fetch('/api/franchises', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Failed to fetch franchises');
-      return response.json();
-    },
-    enabled: user?.role === 'admin' || user?.role === 'franchisee',
+  // Fetch franchisees for selection
+  const { data: franchisees = [] } = useQuery({
+    queryKey: ['/api/entities', 'FRANCHISEE'],
+    queryFn: () => apiRequest('/entities?type=FRANCHISEE'),
+    enabled: user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'].includes(role)),
   });
 
-  // Check if there are accepted franchisees
-  const acceptedFranchises = franchises.filter((f: any) => f.agreementStatus === 'accepted');
-  const hasAcceptedFranchisees = acceptedFranchises.length > 0;
+  // Check if there are active franchisees
+  const activeFranchisees = franchisees.filter((f: any) => f.status === 'ACTIVE');
+  const hasActiveFranchisees = activeFranchisees.length > 0;
 
-  // Fetch parent schools for sub-branch selection
-  const { data: parentSchools = [] } = useQuery({
-    queryKey: ['/api/schools'],
-    queryFn: async () => {
-      const response = await fetch('/api/schools', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Failed to fetch schools');
-      return response.json();
-    },
-  });
+  // Parent schools are the same as schools for sub-branch selection
+  const parentSchools = schools;
 
-  const form = useForm<InsertSchool>({
-    resolver: zodResolver(insertSchoolSchema.omit({ adminUserId: true, agreementStatus: true, agreementAcceptedAt: true, agreementToken: true })),
+  const form = useForm<SchoolFormData>({
+    resolver: zodResolver(schoolFormSchema),
     defaultValues: {
       name: '',
       address: '',
@@ -90,7 +89,7 @@ export function Schools() {
       contactPhone: '',
       contactEmail: '',
       registrationNumber: '',
-      franchiseId: user?.role === 'franchisee' ? franchises.find((f: any) => f.franchiseeUserId === user.id)?.id : undefined,
+      franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? franchisees.find((f: any) => f.metadata?.adminUserId === user.id)?.id : undefined,
       hasSubBranches: false,
       parentSchoolId: undefined,
       isActive: true,
@@ -126,31 +125,69 @@ export function Schools() {
         contactPhone: '',
         contactEmail: '',
         registrationNumber: '',
-        franchiseId: user?.role === 'franchisee' ? franchises.find((f: any) => f.franchiseeUserId === user.id)?.id : undefined,
+        franchiseId: user?.roles?.includes('FRANCHISE_ADMIN') ? franchisees.find((f: any) => f.metadata?.adminUserId === user.id)?.id : undefined,
         hasSubBranches: false,
         parentSchoolId: undefined,
         isActive: true,
       });
     }
-  }, [editingSchool, form, franchises, user?.role]);
+  }, [editingSchool, form, franchisees, user?.roles]);
 
   const createSchoolMutation = useMutation({
-    mutationFn: async (schoolData: InsertSchool) => {
-      const url = editingSchool ? `/api/schools/${editingSchool.id}` : '/api/schools';
-      const method = editingSchool ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(schoolData),
-      });
-      if (!response.ok) {
-        throw new Error(editingSchool ? 'Failed to update school' : 'Failed to create school');
+    mutationFn: (schoolData: SchoolFormData) => {
+      if (editingSchool) {
+        // Update existing school
+        const entityData = {
+          ...editingSchool,
+          name: schoolData.name,
+          status: schoolData.isActive ? 'ACTIVE' : 'INACTIVE',
+          metadata: {
+            ...editingSchool.metadata,
+            address: schoolData.address,
+            city: schoolData.city,
+            state: schoolData.state,
+            pincode: schoolData.pincode,
+            contactPerson: schoolData.contactPerson,
+            contactPhone: schoolData.contactPhone,
+            contactEmail: schoolData.contactEmail,
+            registrationNumber: schoolData.registrationNumber,
+            hasSubBranches: schoolData.hasSubBranches,
+            parentSchoolId: schoolData.parentSchoolId,
+          }
+        };
+        
+        return apiRequest(`/entities/${editingSchool.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entityData),
+        });
+      } else {
+        // Create new school
+        const entityData = {
+          type: 'SCHOOL',
+          name: schoolData.name,
+          status: schoolData.isActive ? 'ACTIVE' : 'INACTIVE',
+          parentId: schoolData.franchiseId,
+          metadata: {
+            address: schoolData.address,
+            city: schoolData.city,
+            state: schoolData.state,
+            pincode: schoolData.pincode,
+            contactPerson: schoolData.contactPerson,
+            contactPhone: schoolData.contactPhone,
+            contactEmail: schoolData.contactEmail,
+            registrationNumber: schoolData.registrationNumber,
+            hasSubBranches: schoolData.hasSubBranches,
+            parentSchoolId: schoolData.parentSchoolId,
+          }
+        };
+        
+        return apiRequest('/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entityData),
+        });
       }
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
@@ -172,18 +209,10 @@ export function Schools() {
   });
 
   const deleteSchoolMutation = useMutation({
-    mutationFn: async (schoolId: number) => {
-      const response = await fetch(`/api/schools/${schoolId}`, {
+    mutationFn: (schoolId: number) => {
+      return apiRequest(`/entities/${schoolId}`, {
         method: 'DELETE',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to delete school' }));
-        throw new Error(errorData.error);
-      }
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/schools'] });
@@ -202,7 +231,7 @@ export function Schools() {
     },
   });
 
-  const onSubmit = (data: InsertSchool) => {
+  const onSubmit = (data: SchoolFormData) => {
     createSchoolMutation.mutate(data);
   };
 
@@ -249,9 +278,9 @@ export function Schools() {
             Manage registered schools and their information
           </p>
         </div>
-        {(user?.role === 'admin' || user?.role === 'franchisee') && (
+        {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'].includes(role)) && (
           <div className="flex items-center space-x-2">
-            {user?.role === 'admin' && !hasAcceptedFranchisees && (
+            {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN'].includes(role)) && !hasActiveFranchisees && (
               <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                 ⚠️ Create a franchisee first to enable school registration
               </div>
@@ -264,12 +293,12 @@ export function Schools() {
             }}>
               <DialogTrigger asChild>
                 <Button 
-                  className={hasAcceptedFranchisees 
+                  className={hasActiveFranchisees 
                     ? colorSchemes.schools.primary
                     : "bg-gray-400 cursor-not-allowed"
                   }
-                  disabled={!hasAcceptedFranchisees}
-                  title={!hasAcceptedFranchisees ? "Create and approve a franchisee first" : ""}
+                  disabled={!hasActiveFranchisees}
+                  title={!hasActiveFranchisees ? "Create and approve a franchisee first" : ""}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Register School
@@ -315,7 +344,7 @@ export function Schools() {
                   </div>
 
                   {/* Franchise & Hierarchy */}
-                  {user?.role === 'admin' && (
+                  {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN'].includes(role)) && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-medium text-gray-900">Franchise & Hierarchy</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +361,7 @@ export function Schools() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {franchises.map((franchise: any) => (
+                                  {franchisees.map((franchise: any) => (
                                     <SelectItem key={franchise.id} value={franchise.id.toString()}>
                                       {franchise.name} - {franchise.city}
                                     </SelectItem>
@@ -542,7 +571,7 @@ export function Schools() {
                 <div className="flex items-center gap-2">
                   {school.agreementStatus && getStatusIcon(school.agreementStatus)}
                   {school.agreementStatus && getStatusBadge(school.agreementStatus)}
-                  {(user?.role === 'admin' || user?.role === 'franchisee') && (
+                  {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'].includes(role)) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
@@ -623,11 +652,11 @@ export function Schools() {
               </div>
 
               {/* Franchise Information */}
-              {school.franchiseId && franchises.find((f: any) => f.id === school.franchiseId) && (
+              {school.franchiseId && franchisees.find((f: any) => f.id === school.franchiseId) && (
                 <div className="flex items-center space-x-2">
                   <Users className="h-4 w-4 text-gray-500" />
                   <span className="text-sm text-gray-600">
-                    Franchise: {franchises.find((f: any) => f.id === school.franchiseId)?.name}
+                    Franchise: {franchisees.find((f: any) => f.id === school.franchiseId)?.name}
                   </span>
                 </div>
               )}
@@ -669,7 +698,7 @@ export function Schools() {
             <p className="text-gray-600 mb-4">
               Get started by registering your first school for dental camps.
             </p>
-            {(user?.role === 'admin' || user?.role === 'franchisee') && (
+            {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'].includes(role)) && (
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Register First School
