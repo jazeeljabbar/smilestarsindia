@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Users, Search, Filter, Eye, FileText, X, UserPlus } from 'lucide-react';
+import { Plus, Users, Search, Filter, Eye, FileText, X, UserPlus, Upload, Download, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +42,6 @@ const studentFormSchema = z.object({
   rollNumber: z.string().min(1, 'Roll number is required'),
   schoolId: z.number().min(1, 'School selection is required'),
   parents: z.array(parentSchema).min(1, 'At least one parent is required').max(4, 'Maximum 4 parents allowed'),
-  campId: z.number().min(1, 'Camp selection is required'),
 });
 
 type StudentFormData = z.infer<typeof studentFormSchema>;
@@ -56,6 +55,10 @@ export function Students() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCamp, setSelectedCamp] = useState<string>('all');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<any>(null);
+  const [uploadStep, setUploadStep] = useState<'select' | 'preview' | 'upload'>('select');
 
   // Helper functions for managing parents
   const addParent = () => {
@@ -81,6 +84,94 @@ export function Students() {
       form.setValue('parents', currentParents.filter((_, i) => i !== index));
     }
   };
+
+  // Bulk upload handlers
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setUploadStep('preview');
+      // Get preview
+      previewUpload(file);
+    }
+  };
+
+  const previewUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('preview', 'true');
+
+    try {
+      const response = await apiRequest('/students/bulk-upload', {
+        method: 'POST',
+        body: formData,
+      });
+      setUploadPreview(response);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to preview file',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/students/template', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'student_upload_template.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to download template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const bulkUploadMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiRequest('/students/bulk-upload', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({
+        title: 'Success',
+        description: data.message,
+      });
+      setShowBulkUpload(false);
+      setUploadFile(null);
+      setUploadPreview(null);
+      setUploadStep('select');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Upload Failed',
+        description: error.response?.data?.error || 'Failed to upload students',
+        variant: 'destructive',
+      });
+    }
+  });
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
     queryKey: ['/api/students', selectedCamp !== 'all' ? { campId: selectedCamp } : {}],
@@ -120,7 +211,6 @@ export function Students() {
         emergencyContact: false,
         medicalDecisions: false,
       }],
-      campId: 0,
     },
   });
 
@@ -185,6 +275,26 @@ export function Students() {
         </div>
         <div className="flex space-x-2">
           {user?.roles?.some(role => ['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={downloadTemplate}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Template
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowBulkUpload(true)}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            </>
+          )}
+          {user?.roles?.some(role => ['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className={colorSchemes.students.primary}>
@@ -244,9 +354,9 @@ export function Students() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
+                                <SelectItem value="MALE">Male</SelectItem>
+                                <SelectItem value="FEMALE">Female</SelectItem>
+                                <SelectItem value="OTHER">Other</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -295,30 +405,6 @@ export function Students() {
                                 {schools.map((school: any) => (
                                   <SelectItem key={school.id} value={school.id.toString()}>
                                     {school.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="campId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Camp</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select camp" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {camps.map((camp: any) => (
-                                  <SelectItem key={camp.id} value={camp.id.toString()}>
-                                    {camp.name} - {camp.school?.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -533,6 +619,144 @@ export function Students() {
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Bulk Upload Dialog */}
+          <Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
+            <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle>Bulk Upload Students</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto pr-2">
+                {uploadStep === 'select' && (
+                  <div className="space-y-4">
+                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
+                      <p className="text-gray-500 mb-4">
+                        Select an Excel file (.xlsx, .xls) containing student data
+                      </p>
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload">
+                        <Button className="cursor-pointer">
+                          Choose File
+                        </Button>
+                      </label>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">Instructions:</h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• Download the template file first</li>
+                        <li>• Fill in student and parent information</li>
+                        <li>• School will be automatically set to your school</li>
+                        <li>• Each student can have up to 2 parents</li>
+                        <li>• Use TRUE/FALSE for permission fields</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {uploadStep === 'preview' && uploadPreview && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Preview Upload</h3>
+                      <Badge variant="outline">
+                        {uploadPreview.totalRecords} students found
+                      </Badge>
+                    </div>
+
+                    {uploadPreview.totalErrors > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-red-800 mb-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="font-medium">{uploadPreview.totalErrors} errors found</span>
+                        </div>
+                        <div className="space-y-1 text-sm text-red-700">
+                          {uploadPreview.errors.map((error: any, index: number) => (
+                            <div key={index}>Row {error.row}: {error.error}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border rounded-lg">
+                      <div className="bg-gray-50 px-4 py-2 border-b">
+                        <h4 className="font-medium">First 10 Students Preview</h4>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Name</th>
+                              <th className="px-3 py-2 text-left">Age</th>
+                              <th className="px-3 py-2 text-left">Gender</th>
+                              <th className="px-3 py-2 text-left">Grade</th>
+                              <th className="px-3 py-2 text-left">Roll No.</th>
+                              <th className="px-3 py-2 text-left">Parents</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uploadPreview.preview.map((student: any, index: number) => (
+                              <tr key={index} className="border-t">
+                                <td className="px-3 py-2">{student.name}</td>
+                                <td className="px-3 py-2">{student.age}</td>
+                                <td className="px-3 py-2">{student.gender}</td>
+                                <td className="px-3 py-2">{student.grade}</td>
+                                <td className="px-3 py-2">{student.rollNumber}</td>
+                                <td className="px-3 py-2">
+                                  {student.parents.map((p: any, i: number) => (
+                                    <div key={i} className="text-xs">
+                                      {p.name} ({p.relationship})
+                                    </div>
+                                  ))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-4 mt-6 border-t">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowBulkUpload(false);
+                      setUploadStep('select');
+                      setUploadFile(null);
+                      setUploadPreview(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  {uploadStep === 'preview' && uploadPreview && uploadPreview.totalErrors === 0 && (
+                    <Button 
+                      onClick={() => uploadFile && bulkUploadMutation.mutate(uploadFile)}
+                      disabled={bulkUploadMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      {bulkUploadMutation.isPending ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Upload {uploadPreview.totalRecords} Students
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

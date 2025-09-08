@@ -135,10 +135,10 @@ router.get('/schools/:schoolId/students', authenticateToken, async (req: Authent
 // Enhanced student registration with multiple parents
 router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'DENTIST', 'SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { name, age, gender, grade, rollNumber, schoolId, parents, campId } = req.body;
+    const { name, age, gender, grade, rollNumber, schoolId, parents } = req.body;
 
     // Validation
-    if (!name || !age || !gender || !grade || !rollNumber || !schoolId || !parents || !Array.isArray(parents) || parents.length === 0 || !campId) {
+    if (!name || !age || !gender || !grade || !rollNumber || !schoolId || !parents || !Array.isArray(parents) || parents.length === 0) {
       return res.status(400).json({ error: 'Missing required fields or invalid parent data' });
     }
 
@@ -146,12 +146,6 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
     const school = await storage.getEntityById(schoolId);
     if (!school || school.type !== 'SCHOOL') {
       return res.status(400).json({ error: 'Invalid school selected' });
-    }
-
-    // Verify camp exists
-    const camp = await storage.getCampById(campId);
-    if (!camp) {
-      return res.status(400).json({ error: 'Invalid camp selected' });
     }
 
     // Check for duplicate student (same name + school combination)
@@ -179,7 +173,6 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
         gender,
         grade,
         rollNumber,
-        campId,
       }
     };
 
@@ -242,7 +235,6 @@ router.post('/students/register', authenticateToken, requireRole(['SYSTEM_ADMIN'
       metadata: { 
         studentName: student.name, 
         schoolId, 
-        campId,
         parentCount: parents.length 
       }
     });
@@ -270,7 +262,6 @@ router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN',
         'Gender': 'MALE',
         'Grade': '7th Grade',
         'Roll Number': 'ST001',
-        'Camp ID': 1,
         'Parent 1 Name': 'Jane Doe',
         'Parent 1 Email': 'jane@example.com',
         'Parent 1 Phone': '+91-9876543210',
@@ -303,7 +294,6 @@ router.get('/students/template', authenticateToken, requireRole(['SYSTEM_ADMIN',
       { wch: 8 },  // Gender
       { wch: 15 }, // Grade
       { wch: 12 }, // Roll Number
-      { wch: 8 },  // Camp ID
       { wch: 20 }, // Parent 1 Name
       { wch: 25 }, // Parent 1 Email
       { wch: 15 }, // Parent 1 Phone
@@ -385,7 +375,6 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
           grade: row['Grade']?.toString().trim(),
           rollNumber: row['Roll Number']?.toString().trim(),
           schoolId: defaultSchoolId, // Use user's school context
-          campId: parseInt(row['Camp ID']) || 0,
           parents: []
         };
 
@@ -410,7 +399,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
 
         // Basic validation
         if (!studentData.name || !studentData.age || !studentData.gender || !studentData.grade || 
-            !studentData.rollNumber || !studentData.campId || studentData.parents.length === 0) {
+            !studentData.rollNumber || studentData.parents.length === 0) {
           errors.push({
             row: i + 2, // Excel row number (header is row 1)
             error: 'Missing required fields',
@@ -512,7 +501,6 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
             gender: studentData.gender,
             grade: studentData.grade,
             rollNumber: studentData.rollNumber,
-            campId: studentData.campId,
           }
         });
 
