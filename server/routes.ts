@@ -2332,19 +2332,10 @@ router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADM
       const userData = {
         email: contactEmail,
         name: contactPerson,
-        status: 'PENDING' as const,
-        entityIds: [entity.id]
+        status: 'PENDING' as const
       };
       
       principalUser = await storage.createUser(userData);
-    } else {
-      // Add entity to existing user's access
-      const currentEntityIds = principalUser.entityIds || [];
-      if (!currentEntityIds.includes(entity.id)) {
-        await storage.updateUser(principalUser.id, {
-          entityIds: [...currentEntityIds, entity.id]
-        });
-      }
     }
     
     // Create membership with SCHOOL_ADMIN role
