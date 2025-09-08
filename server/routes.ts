@@ -237,7 +237,69 @@ router.post('/auth/magic-link/consume', async (req: Request, res: Response) => {
       });
     }
 
-    // Mark token as used
+    // Handle different token types
+    if (magicToken.type === 'FRANCHISE_AGREEMENT') {
+      // Handle franchise agreement flow
+      const franchiseeId = magicToken.metadata?.franchiseeId;
+      if (!franchiseeId) {
+        return res.status(400).json({ error: 'Invalid franchise agreement token' });
+      }
+      
+      const franchisee = await storage.getEntityById(franchiseeId);
+      if (!franchisee) {
+        return res.status(404).json({ error: 'Franchisee not found' });
+      }
+      
+      // Verify user has access to this franchisee
+      if (!user.entityIds?.includes(franchiseeId)) {
+        return res.status(403).json({ error: 'Access denied to this franchisee' });
+      }
+      
+      // Mark token as used
+      await storage.markMagicTokenUsed(token);
+      
+      // Get user memberships
+      const memberships = await storage.getMembershipsByUser(user.id);
+      const roles = memberships.map(m => m.role);
+      
+      // For franchise agreement flow, get both user and franchise agreements
+      const userAgreements = await storage.getAgreementsByRole(roles);
+      const franchiseAgreements = await storage.getAgreementsByRole(['FRANCHISE_ADMIN']); // Get franchise-specific agreements
+      
+      // Combine and deduplicate agreements
+      const allAgreements = [...userAgreements, ...franchiseAgreements];
+      const uniqueAgreements = allAgreements.filter((agreement, index, arr) => 
+        arr.findIndex(a => a.id === agreement.id) === index
+      );
+      
+      res.json({
+        success: true,
+        tokenType: 'FRANCHISE_AGREEMENT',
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: user.status
+        },
+        franchisee: {
+          id: franchisee.id,
+          name: franchisee.name,
+          status: franchisee.status
+        },
+        requiresPasswordSetup: !user.password,
+        requiresAgreements: true,
+        pendingAgreements: uniqueAgreements.map(a => ({
+          id: a.id,
+          title: a.title,
+          bodyMd: a.bodyMd
+        })),
+        token: token // Keep original token for agreement acceptance
+      });
+      return;
+    }
+
+    // Mark token as used for non-franchise agreement flows
     await storage.markMagicTokenUsed(token);
 
     // Get user memberships and check for required agreements
@@ -389,15 +451,61 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 });
 
 // Accept agreements endpoint
-router.post('/auth/accept-agreements', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
   try {
-    const { agreementIds } = req.body;
+    const { agreementIds, token, password } = req.body;
     
     if (!agreementIds || !Array.isArray(agreementIds)) {
       return res.status(400).json({ error: 'Agreement IDs are required' });
     }
 
-    const userId = req.user!.id;
+    let userId: number;
+    let tokenType = 'REGULAR';
+    let franchiseeId: number | null = null;
+    
+    if (token) {
+      // Handle franchise agreement flow with token
+      const magicToken = await storage.getMagicTokenByToken(token);
+      if (!magicToken || magicToken.type !== 'FRANCHISE_AGREEMENT') {
+        return res.status(400).json({ error: 'Invalid franchise agreement token' });
+      }
+      
+      if (new Date() > magicToken.expiresAt) {
+        return res.status(400).json({ error: 'Token has expired' });
+      }
+      
+      const user = await storage.getUserByEmail(magicToken.email);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      userId = user.id;
+      tokenType = 'FRANCHISE_AGREEMENT';
+      franchiseeId = magicToken.metadata?.franchiseeId || null;
+      
+      // Set password if provided
+      if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await storage.updateUser(userId, { password: hashedPassword });
+      }
+      
+      // Mark token as used now that we're processing the agreements
+      await storage.markMagicTokenUsed(token);
+    } else {
+      // Handle regular agreement flow with authentication
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header required' });
+      }
+      
+      const jwtToken = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(jwtToken, JWT_SECRET) as any;
+        userId = decoded.id;
+      } catch (error) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
     
     // Create acceptance records for each agreement
     for (const agreementId of agreementIds) {
@@ -416,20 +524,31 @@ router.post('/auth/accept-agreements', authenticateToken, async (req: Authentica
 
     // Update user status to ACTIVE after accepting agreements
     await storage.updateUser(userId, { status: 'ACTIVE' });
+    
+    // If this is a franchise agreement flow, also update franchisee status
+    if (tokenType === 'FRANCHISE_AGREEMENT' && franchiseeId) {
+      await storage.updateEntity(franchiseeId, { status: 'ACTIVE' });
+    }
 
     // Log the action
     await storage.createAuditLog({
       actorUserId: userId,
-      action: 'ACCEPT_AGREEMENTS',
+      action: tokenType === 'FRANCHISE_AGREEMENT' ? 'ACCEPT_FRANCHISE_AGREEMENTS' : 'ACCEPT_AGREEMENTS',
       targetId: userId,
       targetType: 'USER',
       metadata: {
         agreementIds: agreementIds.join(', '),
-        totalAgreements: agreementIds.length
+        totalAgreements: agreementIds.length,
+        tokenType,
+        franchiseeId
       }
     });
 
-    res.json({ success: true, message: 'Agreements accepted successfully' });
+    res.json({ 
+      success: true, 
+      message: tokenType === 'FRANCHISE_AGREEMENT' ? 'Franchise activated successfully!' : 'Agreements accepted successfully',
+      franchiseeActivated: tokenType === 'FRANCHISE_AGREEMENT'
+    });
   } catch (error) {
     console.error('Accept agreements error:', error);
     res.status(500).json({ error: 'Failed to accept agreements' });
@@ -971,25 +1090,122 @@ router.get('/franchises', authenticateToken, async (req: AuthenticatedRequest, r
   }
 });
 
-// POST /api/franchises - create FRANCHISEE entity
+// POST /api/franchises - create FRANCHISEE entity and primary contact user
 router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const entityData = {
-      ...req.body,
+    const { metadata, ...entityData } = req.body;
+    
+    // Extract contact person details from metadata
+    const contactEmail = metadata?.franchiseContactEmail;
+    const contactPerson = metadata?.franchiseContactPerson;
+    
+    if (!contactEmail || !contactPerson) {
+      return res.status(400).json({ error: 'Contact email and person name are required' });
+    }
+    
+    // Create franchisee entity in PENDING status
+    const franchiseeData = {
+      ...entityData,
       type: 'FRANCHISEE' as const,
-      parentId: 1 // Assume parent is Smile Stars India organization
+      parentId: 1, // Assume parent is Smile Stars India organization
+      status: 'PENDING', // Start in pending status
+      metadata
     };
     
-    const entity = await storage.createEntity(entityData);
+    const entity = await storage.createEntity(franchiseeData);
+    
+    // Create primary contact user with FRANCHISE_ADMIN role
+    let primaryContactUser = await storage.getUserByEmail(contactEmail);
+    
+    if (!primaryContactUser) {
+      // Create new user
+      const userData = {
+        email: contactEmail,
+        username: contactEmail.split('@')[0] + '_' + entity.id,
+        firstName: contactPerson.split(' ')[0] || contactPerson,
+        lastName: contactPerson.split(' ').slice(1).join(' ') || '',
+        status: 'PENDING' as const,
+        entityIds: [entity.id]
+      };
+      
+      primaryContactUser = await storage.createUser(userData);
+    } else {
+      // Add entity to existing user's access
+      const currentEntityIds = primaryContactUser.entityIds || [];
+      if (!currentEntityIds.includes(entity.id)) {
+        await storage.updateUser(primaryContactUser.id, {
+          entityIds: [...currentEntityIds, entity.id]
+        });
+      }
+    }
+    
+    // Create membership with FRANCHISE_ADMIN role
+    await storage.createMembership({
+      userId: primaryContactUser.id,
+      entityId: entity.id,
+      role: 'FRANCHISE_ADMIN'
+    });
+    
+    // Generate magic token for agreement acceptance
+    const magicToken = await storage.createMagicToken({
+      email: contactEmail,
+      type: 'FRANCHISE_AGREEMENT',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      metadata: {
+        franchiseeId: entity.id,
+        franchiseeName: entity.name,
+        userId: primaryContactUser.id
+      }
+    });
+    
+    // Send email with agreement link
+    const agreementUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/franchise/agreement/${magicToken.token}`;
+    const emailHtml = `
+      <h2>Welcome to Smile Stars India!</h2>
+      <p>Hello ${contactPerson},</p>
+      
+      <p>Congratulations! Your franchise application for <strong>${entity.name}</strong> has been created successfully.</p>
+      
+      <p>To activate your franchise and begin operations, you need to:</p>
+      <ol>
+        <li>Review and accept the Franchise Agreement</li>
+        <li>Review and accept our User Terms & Conditions</li>
+        <li>Set up your account password</li>
+      </ol>
+      
+      <p>Please click the link below to complete the agreement process:</p>
+      <p><a href="${agreementUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Accept Agreements & Activate Franchise</a></p>
+      
+      <p>This link will expire in 7 days. If you need assistance, please contact our support team.</p>
+      
+      <p>Best regards,<br>Smile Stars India Team</p>
+    `;
+    
+    await sendEmail(contactEmail, 'Welcome to Smile Stars India - Complete Your Franchise Setup', emailHtml);
     
     await storage.createAuditLog({
       actorUserId: req.user!.id,
       action: 'CREATE_ENTITY',
       entityId: entity.id,
-      metadata: { entityType: entity.type, entityName: entity.name }
+      metadata: { 
+        entityType: entity.type, 
+        entityName: entity.name,
+        primaryContactEmail: contactEmail,
+        primaryContactName: contactPerson
+      }
     });
 
-    res.json(entity);
+    res.json({ 
+      entity, 
+      primaryContactUser: {
+        id: primaryContactUser.id,
+        email: primaryContactUser.email,
+        firstName: primaryContactUser.firstName,
+        lastName: primaryContactUser.lastName,
+        status: primaryContactUser.status
+      },
+      message: 'Franchisee created successfully. Agreement email will be sent to the contact person.' 
+    });
   } catch (error) {
     console.error('Create franchise error:', error);
     res.status(500).json({ error: 'Failed to create franchise' });
@@ -1021,7 +1237,7 @@ router.put('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'O
   }
 });
 
-// DELETE /api/franchises/:id - delete FRANCHISEE entity
+// DELETE /api/franchises/:id - delete FRANCHISEE entity and all associated users
 router.delete('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const entityId = parseInt(req.params.id);
@@ -1039,16 +1255,53 @@ router.delete('/franchises/:id', authenticateToken, requireRole(['SYSTEM_ADMIN',
       return res.status(404).json({ error: 'Franchise not found' });
     }
     
+    // Get all memberships for this entity to find associated users
+    const memberships = await storage.getMembershipsByEntity(entityId);
+    const associatedUserIds = memberships.map(m => m.userId);
+    
+    // Delete all memberships for this entity
+    for (const membership of memberships) {
+      await storage.deleteMembership(membership.id);
+    }
+    
+    // For each user, check if they have other memberships
+    // If not, delete the user completely
+    const usersToDelete = [];
+    for (const userId of associatedUserIds) {
+      const userMemberships = await storage.getMembershipsByUser(userId);
+      if (userMemberships.length === 0) {
+        // User has no other memberships, safe to delete
+        usersToDelete.push(userId);
+      }
+    }
+    
+    // Delete users who have no other memberships
+    for (const userId of usersToDelete) {
+      await storage.deleteUser(userId);
+    }
+    
+    // Delete the franchise entity
     await storage.deleteEntity(entityId);
     
     await storage.createAuditLog({
       actorUserId: req.user!.id,
       action: 'DELETE_ENTITY',
       entityId: entityId,
-      metadata: { entityType: 'FRANCHISEE', entityName: entity.name }
+      metadata: { 
+        entityType: 'FRANCHISEE', 
+        entityName: entity.name,
+        deletedUsers: usersToDelete.length,
+        deletedMemberships: memberships.length
+      }
     });
 
-    res.json({ message: 'Franchise deleted successfully' });
+    res.json({ 
+      message: 'Franchise deleted successfully',
+      details: {
+        deletedUsers: usersToDelete.length,
+        deletedMemberships: memberships.length
+      }
+    });
   } catch (error) {
     console.error('Delete franchise error:', error);
     res.status(500).json({ error: 'Failed to delete franchise' });
