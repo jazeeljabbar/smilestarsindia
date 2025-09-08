@@ -11,7 +11,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { user, activeRole, logout, switchRole } = useAuth();
+  const { user, activeRole, activeMembership, memberships, logout, switchRole, switchMembership } = useAuth();
   const [location, setLocation] = useLocation();
 
   // Role display names
@@ -43,6 +43,33 @@ export function Layout({ children }: LayoutProps) {
     // Navigate to appropriate dashboard for the new role
     const dashboardPath = roleDashboards[newRole] || '/dashboard';
     setLocation(dashboardPath);
+  };
+
+  const handleMembershipSwitch = (membershipId: number) => {
+    switchMembership(membershipId);
+    const membership = memberships.find(m => m.id === membershipId);
+    if (membership) {
+      const dashboardPath = roleDashboards[membership.role] || '/dashboard';
+      setLocation(dashboardPath);
+    }
+  };
+
+  // Get unique memberships (deduplicate same role+entity combinations)
+  const uniqueMemberships = memberships.reduce((acc: any[], membership) => {
+    const existing = acc.find(m => 
+      m.role === membership.role && m.entityId === membership.entityId
+    );
+    if (!existing) {
+      acc.push(membership);
+    }
+    return acc;
+  }, []);
+
+  // Generate display names for memberships
+  const getMembershipDisplayName = (membership: any) => {
+    const roleName = roleDisplayNames[membership.role] || membership.role;
+    const entityName = membership.entity?.name || `Entity ${membership.entityId}`;
+    return `${roleName} - ${entityName}`;
   };
 
   const navigation = [
@@ -145,30 +172,31 @@ export function Layout({ children }: LayoutProps) {
                 <div className="hidden md:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name}</div>
                   <div className="text-xs text-gray-500">
-                    {activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                    {activeMembership ? getMembershipDisplayName(activeMembership) : 
+                     activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
                   </div>
                 </div>
                 
-                {/* Role Switcher Dropdown */}
-                {user?.roles && user.roles.length > 1 && (
+                {/* Membership Switcher Dropdown */}
+                {uniqueMemberships.length > 1 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm" className="hidden md:flex items-center space-x-1">
                         <ChevronDown className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuLabel>Switch Role</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {user.roles.map((role) => (
+                      {uniqueMemberships.map((membership) => (
                         <DropdownMenuItem
-                          key={role}
-                          onClick={() => handleRoleSwitch(role)}
-                          className={activeRole === role ? 'bg-blue-50 text-blue-700' : ''}
+                          key={membership.id}
+                          onClick={() => handleMembershipSwitch(membership.id)}
+                          className={activeMembership?.id === membership.id ? 'bg-blue-50 text-blue-700' : ''}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span>{roleDisplayNames[role] || role}</span>
-                            {activeRole === role && (
+                            <span className="text-sm">{getMembershipDisplayName(membership)}</span>
+                            {activeMembership?.id === membership.id && (
                               <div className="h-2 w-2 bg-blue-600 rounded-full" />
                             )}
                           </div>
@@ -202,29 +230,30 @@ export function Layout({ children }: LayoutProps) {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{user?.name}</div>
                         <div className="text-xs text-gray-500">
-                          {activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                          {activeMembership ? getMembershipDisplayName(activeMembership) : 
+                           activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Mobile Role Switcher */}
-                    {user?.roles && user.roles.length > 1 && (
+                    {/* Mobile Membership Switcher */}
+                    {uniqueMemberships.length > 1 && (
                       <div className="pb-4 border-b border-gray-200">
                         <div className="text-sm font-medium text-gray-900 mb-2">Switch Role</div>
                         <div className="space-y-1">
-                          {user.roles.map((role) => (
+                          {uniqueMemberships.map((membership) => (
                             <button
-                              key={role}
-                              onClick={() => handleRoleSwitch(role)}
+                              key={membership.id}
+                              onClick={() => handleMembershipSwitch(membership.id)}
                               className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                                activeRole === role 
+                                activeMembership?.id === membership.id 
                                   ? 'bg-blue-50 text-blue-700 font-medium' 
                                   : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span>{roleDisplayNames[role] || role}</span>
-                                {activeRole === role && (
+                                <span>{getMembershipDisplayName(membership)}</span>
+                                {activeMembership?.id === membership.id && (
                                   <div className="h-2 w-2 bg-blue-600 rounded-full" />
                                 )}
                               </div>

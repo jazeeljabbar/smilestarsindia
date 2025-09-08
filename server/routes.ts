@@ -464,10 +464,10 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
     let franchiseeId: number | null = null;
     
     if (token) {
-      // Handle franchise agreement flow with token
+      // Handle franchise or school agreement flow with token
       const magicToken = await storage.getMagicTokenByToken(token);
-      if (!magicToken || magicToken.type !== 'FRANCHISE_AGREEMENT') {
-        return res.status(400).json({ error: 'Invalid franchise agreement token' });
+      if (!magicToken || !['FRANCHISE_AGREEMENT', 'SCHOOL_AGREEMENT'].includes(magicToken.type)) {
+        return res.status(400).json({ error: 'Invalid agreement token' });
       }
       
       if (new Date() > magicToken.expiresAt) {
@@ -480,8 +480,8 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
       }
       
       userId = user.id;
-      tokenType = 'FRANCHISE_AGREEMENT';
-      franchiseeId = magicToken.metadata?.franchiseeId || null;
+      tokenType = magicToken.type;
+      franchiseeId = magicToken.metadata?.franchiseeId || magicToken.metadata?.schoolId || null;
       
       // Set password if provided
       if (password) {
@@ -525,15 +525,16 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
     // Update user status to ACTIVE after accepting agreements
     await storage.updateUser(userId, { status: 'ACTIVE' });
     
-    // If this is a franchise agreement flow, also update franchisee status
-    if (tokenType === 'FRANCHISE_AGREEMENT' && franchiseeId) {
+    // If this is a franchise or school agreement flow, also update entity status
+    if ((tokenType === 'FRANCHISE_AGREEMENT' || tokenType === 'SCHOOL_AGREEMENT') && franchiseeId) {
       await storage.updateEntity(franchiseeId, { status: 'ACTIVE' });
     }
 
     // Log the action
     await storage.createAuditLog({
       actorUserId: userId,
-      action: tokenType === 'FRANCHISE_AGREEMENT' ? 'ACCEPT_FRANCHISE_AGREEMENTS' : 'ACCEPT_AGREEMENTS',
+      action: tokenType === 'FRANCHISE_AGREEMENT' ? 'ACCEPT_FRANCHISE_AGREEMENTS' : 
+              tokenType === 'SCHOOL_AGREEMENT' ? 'ACCEPT_SCHOOL_AGREEMENTS' : 'ACCEPT_AGREEMENTS',
       targetId: userId,
       targetType: 'USER',
       metadata: {
@@ -546,8 +547,9 @@ router.post('/auth/accept-agreements', async (req: Request, res: Response) => {
 
     res.json({ 
       success: true, 
-      message: tokenType === 'FRANCHISE_AGREEMENT' ? 'Franchise activated successfully!' : 'Agreements accepted successfully',
-      franchiseeActivated: tokenType === 'FRANCHISE_AGREEMENT'
+      message: tokenType === 'FRANCHISE_AGREEMENT' ? 'Franchise activated successfully!' : 
+               tokenType === 'SCHOOL_AGREEMENT' ? 'School activated successfully!' : 'Agreements accepted successfully',
+      entityActivated: tokenType === 'FRANCHISE_AGREEMENT' || tokenType === 'SCHOOL_AGREEMENT'
     });
   } catch (error) {
     console.error('Accept agreements error:', error);
@@ -1381,21 +1383,118 @@ router.get('/schools', authenticateToken, async (req: AuthenticatedRequest, res:
 // POST /api/schools - create SCHOOL entity
 router.post('/schools', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const entityData = {
-      ...req.body,
-      type: 'SCHOOL' as const
+    const { metadata, ...entityData } = req.body;
+    
+    // Extract principal/contact person details from metadata
+    const contactEmail = metadata?.principalEmail || metadata?.schoolContactEmail;
+    const contactPerson = metadata?.principalName || metadata?.schoolContactPerson;
+    
+    if (!contactEmail || !contactPerson) {
+      return res.status(400).json({ error: 'Principal email and name are required' });
+    }
+    
+    // Create school entity in DRAFT status (will be ACTIVE after agreement acceptance)
+    const schoolData = {
+      ...entityData,
+      type: 'SCHOOL' as const,
+      status: 'DRAFT', // Start in draft status, will be activated after agreement
+      metadata
     };
     
-    const entity = await storage.createEntity(entityData);
+    const entity = await storage.createEntity(schoolData);
+    
+    // Create primary contact user (principal) with SCHOOL_ADMIN role
+    let principalUser = await storage.getUserByEmail(contactEmail);
+    
+    if (!principalUser) {
+      // Create new user
+      const userData = {
+        email: contactEmail,
+        name: contactPerson,
+        status: 'PENDING' as const,
+        entityIds: [entity.id]
+      };
+      
+      principalUser = await storage.createUser(userData);
+    } else {
+      // Add entity to existing user's access
+      const currentEntityIds = principalUser.entityIds || [];
+      if (!currentEntityIds.includes(entity.id)) {
+        await storage.updateUser(principalUser.id, {
+          entityIds: [...currentEntityIds, entity.id]
+        });
+      }
+    }
+    
+    // Create membership with SCHOOL_ADMIN role
+    await storage.createMembership({
+      userId: principalUser.id,
+      entityId: entity.id,
+      role: 'SCHOOL_ADMIN',
+      isPrimary: true,
+      validFrom: new Date()
+    });
+    
+    // Generate magic token for agreement acceptance
+    const token = generateToken();
+    const magicToken = await storage.createMagicToken({
+      email: contactEmail,
+      token: token,
+      type: 'SCHOOL_AGREEMENT',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      metadata: {
+        schoolId: entity.id,
+        schoolName: entity.name,
+        userId: principalUser.id
+      }
+    });
+    
+    // Send email with agreement link
+    const agreementUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/school/agreement/${magicToken.token}`;
+    const emailHtml = `
+      <h2>Welcome to Smile Stars India School Program!</h2>
+      <p>Hello ${contactPerson},</p>
+      
+      <p>Congratulations! Your school <strong>${entity.name}</strong> has been enrolled in the Smile Stars India dental care program.</p>
+      
+      <p>To activate your school's participation and begin scheduling dental camps, you need to:</p>
+      <ol>
+        <li>Review and accept the School Participation Agreement</li>
+        <li>Review and accept our Terms & Conditions</li>
+        <li>Set up your account password</li>
+      </ol>
+      
+      <p>Please click the link below to complete the agreement process:</p>
+      <p><a href="${agreementUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Accept Agreements & Activate School</a></p>
+      
+      <p>This link will expire in 7 days. If you need assistance, please contact our support team.</p>
+      
+      <p>Best regards,<br>Smile Stars India Team</p>
+    `;
+    
+    await sendEmail(contactEmail, 'Welcome to Smile Stars India School Program - Complete Your Setup', emailHtml, 'admin@smilestarsindia.com');
     
     await storage.createAuditLog({
       actorUserId: req.user!.id,
       action: 'CREATE_ENTITY',
       entityId: entity.id,
-      metadata: { entityType: entity.type, entityName: entity.name }
+      metadata: { 
+        entityType: entity.type, 
+        entityName: entity.name,
+        principalEmail: contactEmail,
+        agreementSent: true
+      }
     });
 
-    res.json(entity);
+    res.json({
+      entity,
+      principalUser: {
+        id: principalUser.id,
+        email: principalUser.email,
+        status: principalUser.status
+      },
+      message: 'School created successfully. Agreement email will be sent to the principal.'
+    });
   } catch (error) {
     console.error('Create school error:', error);
     res.status(500).json({ error: 'Failed to create school' });
