@@ -39,11 +39,13 @@ export function Dashboard() {
     queryFn: () => apiRequest('/camps'),
   });
 
-  const { data: students = [] } = useQuery({
+  const { data: studentsResponse } = useQuery({
     queryKey: ['/api/students'],
-    queryFn: () => apiRequest('/students'),
+    queryFn: () => apiRequest('/students?pageSize=1000'), // Get all for dashboard stats
     enabled: hasAnyRole(['SCHOOL_ADMIN', 'SYSTEM_ADMIN']),
   });
+  
+  const students = studentsResponse?.students || [];
 
   const { data: screenings = [] } = useQuery({
     queryKey: ['/api/screenings'],
