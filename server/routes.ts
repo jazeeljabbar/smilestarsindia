@@ -594,6 +594,8 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
     // Transform and validate data
     const students: any[] = [];
     const errors: any[] = [];
+    
+    console.log('Starting row processing...');
 
     for (let i = 0; i < jsonData.length; i++) {
       const row: any = jsonData[i];
@@ -694,8 +696,11 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
       }
     }
 
+    console.log('Row processing complete. Errors:', errors.length, 'Valid students:', students.length);
+    
     // If there are validation errors, return them immediately
     if (errors.length > 0) {
+      console.log('Returning validation errors:', errors);
       return res.status(400).json({
         error: `Found ${errors.length} validation error(s) in your Excel file`,
         errors,
@@ -705,11 +710,14 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
 
     // Check if any valid students found
     if (students.length === 0) {
+      console.log('No valid students found');
       return res.status(400).json({ 
         error: 'No valid student records found in the Excel file. Please check the format and try again.',
         errors 
       });
     }
+    
+    console.log('Found', students.length, 'valid students, checking for duplicates...');
 
     // Check for duplicates within the upload
     const duplicatesInFile: any[] = [];
