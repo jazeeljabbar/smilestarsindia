@@ -30,9 +30,16 @@ export function Layout({ children }: LayoutProps) {
   const filteredNavigation = navigation.filter(item => {
     if (!user?.roles) return false;
     
-    // Admin-only items - check for any admin role
-    if (item.adminOnly && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
-      return false;
+    // Admin-only items - different levels of access
+    if (item.adminOnly) {
+      // Users page is only for System Admin
+      if (item.name === 'Users' && !hasRole('SYSTEM_ADMIN')) {
+        return false;
+      }
+      // Other admin items for any admin role
+      if (item.name !== 'Users' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
+        return false;
+      }
     }
     
     // Parent users only see Reports

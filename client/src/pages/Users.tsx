@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { type User, type InsertUser } from '@shared/schema';
 import { colorSchemes } from '@/lib/colorSchemes';
+import { useAuth } from '@/lib/auth.tsx';
+import { useLocation } from 'wouter';
 
 const userFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -69,6 +71,8 @@ const statusColors = {
 };
 
 export function Users() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,6 +84,18 @@ export function Users() {
   const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Protect page - only System Admin can access
+  useEffect(() => {
+    if (user && !user.roles?.includes('SYSTEM_ADMIN')) {
+      toast({
+        title: 'Access Denied',
+        description: 'You do not have permission to access this page.',
+        variant: 'destructive',
+      });
+      setLocation('/dashboard');
+    }
+  }, [user, setLocation, toast]);
 
   // Fetch all users - server now includes memberships
   const { data: users, isLoading } = useQuery({
