@@ -9,14 +9,32 @@ interface User {
   status: string;
 }
 
+interface Membership {
+  id: number;
+  userId: number;
+  entityId: number;
+  role: string;
+  isPrimary: boolean;
+  validFrom: string;
+  validTo: string | null;
+  createdAt: string;
+  entity?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   activeRole: string | null;
-  activeMembership: any | null;
+  activeMembership: Membership | null;
+  memberships: Membership[];
   login: (token: string, user: User) => void;
   logout: () => void;
   switchRole: (role: string) => void;
+  switchMembership: (membershipId: number) => void;
   isLoading: boolean;
 }
 
@@ -26,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [activeRole, setActiveRole] = useState<string | null>(localStorage.getItem('activeRole'));
-  const [activeMembership, setActiveMembership] = useState<any | null>(null);
+  const [activeMembership, setActiveMembership] = useState<Membership | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,8 +61,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return res.json();
         })
-        .then((userData) => {
+        .then(async (userData) => {
           setUser(userData);
+          
+          // Fetch detailed memberships with entity information
+          const membershipsResponse = await fetch('/api/auth/memberships', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          let userMemberships: Membership[] = [];
+          if (membershipsResponse.ok) {
+            const membershipsData = await membershipsResponse.json();
+            userMemberships = membershipsData;
+            setMemberships(userMemberships);
+          }
+          
           // Set active role if not already set or if stored role is not in user's roles
           const storedRole = localStorage.getItem('activeRole');
           if (!storedRole || !userData.roles?.includes(storedRole)) {
@@ -55,6 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } else {
             setActiveRole(storedRole);
+          }
+          
+          // Set active membership based on active role
+          if (userMemberships.length > 0) {
+            const currentMembership = userMemberships.find(m => 
+              m.role === (storedRole || getPrimaryRole(userData.roles || []))
+            );
+            if (currentMembership) {
+              setActiveMembership(currentMembership);
+            }
           }
         })
         .catch((error) => {
@@ -97,11 +139,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user?.roles?.includes(role)) {
       setActiveRole(role);
       localStorage.setItem('activeRole', role);
+      
+      // Update active membership when role changes
+      const newMembership = memberships.find(m => m.role === role);
+      if (newMembership) {
+        setActiveMembership(newMembership);
+      }
+    }
+  };
+
+  const switchMembership = (membershipId: number) => {
+    const membership = memberships.find(m => m.id === membershipId);
+    if (membership) {
+      setActiveMembership(membership);
+      setActiveRole(membership.role);
+      localStorage.setItem('activeRole', membership.role);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, activeRole, activeMembership, login, logout, switchRole, isLoading }}>
+    <AuthContext.Provider value={{ user, token, activeRole, activeMembership, memberships, login, logout, switchRole, switchMembership, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

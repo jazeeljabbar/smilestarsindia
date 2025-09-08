@@ -579,6 +579,33 @@ router.get('/auth/me', authenticateToken, async (req: AuthenticatedRequest, res:
   }
 });
 
+// Get detailed memberships with entity information
+router.get('/auth/memberships', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const memberships = await storage.getMembershipsByUser(req.user!.id);
+    
+    // Fetch entity details for each membership
+    const detailedMemberships = await Promise.all(
+      memberships.map(async (membership) => {
+        const entity = await storage.getEntityById(membership.entityId);
+        return {
+          ...membership,
+          entity: entity ? {
+            id: entity.id,
+            name: entity.name,
+            type: entity.type
+          } : null
+        };
+      })
+    );
+    
+    res.json(detailedMemberships);
+  } catch (error) {
+    console.error('Get memberships error:', error);
+    res.status(500).json({ error: 'Failed to get memberships' });
+  }
+});
+
 // Get entities (with role-based filtering)
 router.get('/entities', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
