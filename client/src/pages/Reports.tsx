@@ -27,10 +27,12 @@ export function Reports() {
     queryFn: () => apiRequest('/reports'),
   });
 
-  const { data: students = [] } = useQuery({
+  const { data: studentsResponse } = useQuery({
     queryKey: ['/api/students'],
-    queryFn: () => apiRequest('/students'),
+    queryFn: () => apiRequest('/students?pageSize=1000'), // Get all students for reports
   });
+  
+  const students = studentsResponse?.students || [];
 
   const { data: screenings = [] } = useQuery({
     queryKey: ['/api/screenings'],
@@ -394,7 +396,7 @@ export function Reports() {
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {user?.role === 'admin' && !student.report.sentToParent && (
+                          {(user?.roles?.includes('SYSTEM_ADMIN') || user?.roles?.includes('SCHOOL_ADMIN')) && !student.report.sentToParent && (
                             <Button 
                               variant="ghost" 
                               size="sm"
