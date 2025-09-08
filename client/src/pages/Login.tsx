@@ -191,9 +191,9 @@ export function Login() {
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-semibold text-sm text-gray-700 mb-2">Development Login Credentials:</h4>
             <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>Email:</strong> admin@smilestars.com</p>
-              <p><strong>Password:</strong> 12345</p>
-              <p className="text-blue-600 mt-2">All test users have password: 12345</p>
+              <p><strong>Email:</strong> admin@smilestarsindia.com</p>
+              <p><strong>Password:</strong> admin123</p>
+              <p className="text-blue-600 mt-2">System Admin account for testing</p>
             </div>
           </div>
         </CardContent>
