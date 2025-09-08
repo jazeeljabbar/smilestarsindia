@@ -32,7 +32,7 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Email sending function
-async function sendEmail(to: string, subject: string, html: string, from: string = 'noreply@smilestars.com') {
+async function sendEmail(to: string, subject: string, html: string, from: string = 'admin@smilestarsindia.com') {
   console.log('=== SENDING EMAIL ===');
   console.log(`To: ${to}`);
   console.log(`From: ${from}`);
@@ -200,7 +200,7 @@ router.post('/auth/magic-link/request', async (req: Request, res: Response) => {
       <p>If you didn't request this login, please ignore this email.</p>
     `;
 
-    await sendEmail(email, 'Login to Smile Stars India', emailHtml);
+    await sendEmail(email, 'Login to Smile Stars India', emailHtml, 'admin@smilestarsindia.com');
 
     res.json({ message: 'Magic link sent to your email' });
   } catch (error) {
@@ -687,7 +687,7 @@ router.post('/auth/invite', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG
       <p>This invitation will expire in 48 hours.</p>
     `;
 
-    await sendEmail(email, 'Welcome to Smile Stars India', emailHtml);
+    await sendEmail(email, 'Welcome to Smile Stars India', emailHtml, 'admin@smilestarsindia.com');
 
     // Log the action
     await storage.createAuditLog({
@@ -1181,7 +1181,7 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
       <p>Best regards,<br>Smile Stars India Team</p>
     `;
     
-    await sendEmail(contactEmail, 'Welcome to Smile Stars India - Complete Your Franchise Setup', emailHtml);
+    await sendEmail(contactEmail, 'Welcome to Smile Stars India - Complete Your Franchise Setup', emailHtml, 'admin@smilestarsindia.com');
     
     await storage.createAuditLog({
       actorUserId: req.user!.id,
