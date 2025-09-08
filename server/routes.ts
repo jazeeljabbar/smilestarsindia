@@ -1145,8 +1145,10 @@ router.post('/franchises', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_
     });
     
     // Generate magic token for agreement acceptance
+    const token = generateToken(); // Generate the actual token string
     const magicToken = await storage.createMagicToken({
       email: contactEmail,
+      token: token,
       type: 'FRANCHISE_AGREEMENT',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       metadata: {
