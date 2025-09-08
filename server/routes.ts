@@ -421,6 +421,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
   console.log('Bulk upload started');
   console.log('User:', req.user?.email);
   console.log('File received:', req.file ? 'Yes' : 'No');
+  console.log('School ID from request:', req.body.schoolId);
   
   try {
     if (!req.file) {
@@ -444,18 +445,46 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
       return res.status(400).json({ error: 'Excel file is empty' });
     }
 
-    // Get current user's school context for automatic school assignment
+    // Determine target school ID based on user role and request
+    let targetSchoolId: number | null = null;
     const userMemberships = await storage.getMembershipsByUser(req.user!.id);
-    const schoolMembership = userMemberships.find(m => m.role === 'SCHOOL_ADMIN');
-    let defaultSchoolId = null;
-
-    if (schoolMembership) {
-      defaultSchoolId = schoolMembership.entityId;
+    
+    if (req.user!.roles.includes('SCHOOL_ADMIN')) {
+      // School admin can only upload to their assigned school
+      const schoolMembership = userMemberships.find(m => m.role === 'SCHOOL_ADMIN');
+      if (schoolMembership) {
+        targetSchoolId = schoolMembership.entityId;
+      } else {
+        return res.status(400).json({ 
+          error: 'You must be assigned to a school to upload students.' 
+        });
+      }
     } else {
-      return res.status(400).json({ 
-        error: 'You must be a School Admin to upload students. Please contact your administrator.' 
-      });
+      // Admin or franchise admin must specify school in request
+      if (!req.body.schoolId) {
+        return res.status(400).json({ error: 'School ID is required for bulk upload' });
+      }
+      targetSchoolId = parseInt(req.body.schoolId);
+      
+      // Validate permissions for the specified school
+      if (req.user!.roles.includes('FRANCHISE_ADMIN')) {
+        const franchiseeMembership = userMemberships.find(m => m.role === 'FRANCHISE_ADMIN');
+        if (franchiseeMembership) {
+          const school = await storage.getEntityById(targetSchoolId);
+          if (!school || school.parentId !== franchiseeMembership.entityId) {
+            return res.status(403).json({ error: 'You can only upload students to schools under your franchisee' });
+          }
+        } else {
+          return res.status(403).json({ error: 'Franchise admin membership not found' });
+        }
+      }
     }
+
+    if (!targetSchoolId) {
+      return res.status(400).json({ error: 'Unable to determine target school for upload' });
+    }
+
+    console.log('Target school ID:', targetSchoolId);
 
     // Transform and validate data
     const students: any[] = [];
@@ -471,7 +500,7 @@ router.post('/students/bulk-upload', authenticateToken, requireRole(['SYSTEM_ADM
           gender: row['Gender']?.toString().toUpperCase(),
           grade: row['Grade']?.toString().trim(),
           rollNumber: row['Roll Number']?.toString().trim(),
-          schoolId: defaultSchoolId, // Use user's school context
+          schoolId: targetSchoolId, // Use determined target school
           parents: []
         };
 

@@ -75,6 +75,7 @@ export function Students() {
   const [selectedCamp, setSelectedCamp] = useState<string>('all');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedFranchiseeId, setSelectedFranchiseeId] = useState<number | null>(null);
+  const [selectedBulkSchoolId, setSelectedBulkSchoolId] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<any>(null);
   const [uploadStep, setUploadStep] = useState<'select' | 'uploading' | 'complete'>('select');
@@ -108,6 +109,16 @@ export function Students() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate school selection for non-school admins
+      if (!userRoles.includes('SCHOOL_ADMIN') && !selectedBulkSchoolId) {
+        toast({
+          title: 'Error',
+          description: 'Please select a school first',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setUploadFile(file);
       setUploadStep('uploading');
       // Auto-upload the file immediately
@@ -147,6 +158,12 @@ export function Students() {
     mutationFn: (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
+      
+      // Add school ID for non-school admins
+      if (!userRoles.includes('SCHOOL_ADMIN') && selectedBulkSchoolId) {
+        formData.append('schoolId', selectedBulkSchoolId.toString());
+      }
+      
       return apiRequest('/students/bulk-upload', {
         method: 'POST',
         body: formData,
@@ -714,33 +731,96 @@ export function Students() {
               <div className="flex-1 overflow-y-auto pr-2">
                 <div className="space-y-4">
                   {uploadStep === 'select' && (
-                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
-                      <p className="text-gray-500 mb-4">
-                        Select an Excel file (.xlsx, .xls) containing student data
-                      </p>
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        id="file-upload"
-                        ref={(input) => {
-                          if (input) {
-                            input.onclick = () => {
-                              input.value = '';
-                            };
-                          }
-                        }}
-                      />
-                      <Button 
-                        type="button" 
-                        onClick={() => document.getElementById('file-upload')?.click()}
-                        className="cursor-pointer"
-                      >
-                        Choose File to Upload
-                      </Button>
+                    <div className="space-y-6">
+                      {/* School Selection for Admins and Franchise Admins */}
+                      {!userRoles.includes('SCHOOL_ADMIN') && (
+                        <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                          <h4 className="font-medium text-gray-900">Select Target School</h4>
+                          
+                          {/* Franchisee Selection - Only for System Admins */}
+                          {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-700">Franchisee (Optional)</label>
+                              <select
+                                value={selectedFranchiseeId || ''}
+                                onChange={(e) => {
+                                  const franchiseeId = e.target.value ? parseInt(e.target.value) : null;
+                                  setSelectedFranchiseeId(franchiseeId);
+                                  setSelectedBulkSchoolId(null); // Reset school selection
+                                }}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                              >
+                                <option value="">All Franchisees</option>
+                                {franchisees.map((franchisee: any) => (
+                                  <option key={franchisee.id} value={franchisee.id.toString()}>
+                                    {franchisee.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">
+                              School <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={selectedBulkSchoolId || ''}
+                              onChange={(e) => setSelectedBulkSchoolId(e.target.value ? parseInt(e.target.value) : null)}
+                              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                              required
+                            >
+                              <option value="">Select school</option>
+                              {availableSchools.map((school: any) => (
+                                <option key={school.id} value={school.id.toString()}>
+                                  {school.name}
+                                </option>
+                              ))}
+                            </select>
+                            {!selectedBulkSchoolId && (
+                              <p className="mt-1 text-sm text-red-600">Please select a school for bulk upload</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Student Excel File</h3>
+                        <p className="text-gray-500 mb-4">
+                          Select an Excel file (.xlsx, .xls) containing student data
+                        </p>
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          id="file-upload"
+                          disabled={!userRoles.includes('SCHOOL_ADMIN') && !selectedBulkSchoolId}
+                          ref={(input) => {
+                            if (input) {
+                              input.onclick = () => {
+                                input.value = '';
+                              };
+                            }
+                          }}
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            if (userRoles.includes('SCHOOL_ADMIN') || selectedBulkSchoolId) {
+                              document.getElementById('file-upload')?.click();
+                            }
+                          }}
+                          disabled={!userRoles.includes('SCHOOL_ADMIN') && !selectedBulkSchoolId}
+                          className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Choose File to Upload
+                        </Button>
+                        {!userRoles.includes('SCHOOL_ADMIN') && !selectedBulkSchoolId && (
+                          <p className="mt-2 text-sm text-red-600">Please select a school first</p>
+                        )}
+                      </div>
                     </div>
                   )}
 
