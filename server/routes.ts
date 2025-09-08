@@ -1641,6 +1641,51 @@ router.get('/students', authenticateToken, async (req: AuthenticatedRequest, res
   }
 });
 
+// Get school data for current school admin
+router.get('/schools/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get user's school membership to find which school they manage
+    const memberships = await storage.getMembershipsByUser(req.user!.id);
+    const schoolMembership = memberships.find(m => m.role === 'SCHOOL_ADMIN');
+    
+    if (!schoolMembership) {
+      return res.status(404).json({ error: 'No school found for this admin' });
+    }
+    
+    const schoolEntityId = schoolMembership.entityId;
+    
+    // Get the school entity
+    const schoolEntity = await storage.getEntityById(schoolEntityId);
+    
+    if (!schoolEntity || schoolEntity.type !== 'SCHOOL') {
+      return res.status(404).json({ error: 'School entity not found' });
+    }
+    
+    // Flatten metadata fields for frontend compatibility (same as other schools endpoint)
+    const schoolWithFlattenedData = {
+      ...schoolEntity,
+      // Flatten metadata fields to top level for frontend access
+      address: schoolEntity.metadata?.address,
+      city: schoolEntity.metadata?.city,
+      state: schoolEntity.metadata?.state,
+      pincode: schoolEntity.metadata?.pincode,
+      contactPerson: schoolEntity.metadata?.contactPerson,
+      contactPhone: schoolEntity.metadata?.contactPhone,
+      contactEmail: schoolEntity.metadata?.contactEmail,
+      registrationNumber: schoolEntity.metadata?.registrationNumber,
+      hasSubBranches: schoolEntity.metadata?.hasSubBranches,
+      // Legacy field mappings for backward compatibility
+      contactPersonName: schoolEntity.metadata?.contactPerson,
+      isActive: schoolEntity.status === 'ACTIVE'
+    };
+    
+    res.json(schoolWithFlattenedData);
+  } catch (error) {
+    console.error('Get my school error:', error);
+    res.status(500).json({ error: 'Failed to get school data' });
+  }
+});
+
 // Get students for current school admin's school
 router.get('/students/my-school', authenticateToken, requireRole(['SCHOOL_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {

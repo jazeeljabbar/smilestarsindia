@@ -3,13 +3,17 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { School, Camp, Student } from '@shared/schema';
-import { School as SchoolIcon, Users, Calendar, GraduationCap, FileText, CheckCircle } from 'lucide-react';
+import { School as SchoolIcon, Users, Calendar, GraduationCap, FileText, CheckCircle, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth.tsx';
 
 export default function SchoolAdminDashboard() {
@@ -17,7 +21,18 @@ export default function SchoolAdminDashboard() {
   const [showAgreement, setShowAgreement] = useState(false);
   const [userAgreementChecked, setUserAgreementChecked] = useState(false);
   const [schoolAgreementChecked, setSchoolAgreementChecked] = useState(false);
+  const [isCampDialogOpen, setIsCampDialogOpen] = useState(false);
   const { user } = useAuth();
+
+  // Camp form state
+  const [campFormData, setCampFormData] = useState({
+    name: '',
+    startDate: '',
+    endDate: '',
+    expectedStudents: '',
+    status: 'planned',
+    description: '',
+  });
 
   // Get current user's school
   const { data: school, isLoading, error } = useQuery<School>({
@@ -70,6 +85,77 @@ export default function SchoolAdminDashboard() {
       });
     },
   });
+
+  // Camp creation mutation
+  const createCampMutation = useMutation({
+    mutationFn: (campData: any) => {
+      return apiRequest('/camps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...campData,
+          schoolEntityId: school?.id // Automatically assign to this school
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/camps/my-school'] });
+      toast({
+        title: 'Success',
+        description: 'Camp scheduled successfully',
+      });
+      setIsCampDialogOpen(false);
+      resetCampForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to schedule camp',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const resetCampForm = () => {
+    setCampFormData({
+      name: '',
+      startDate: '',
+      endDate: '',
+      expectedStudents: '',
+      status: 'planned',
+      description: '',
+    });
+  };
+
+  const handleCampSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!campFormData.name || !campFormData.startDate || !campFormData.endDate || !campFormData.expectedStudents) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate dates are in the future
+    const startDate = new Date(campFormData.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (startDate <= today) {
+      toast({
+        title: 'Invalid Date',
+        description: 'Camp start date must be in the future',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    createCampMutation.mutate(campFormData);
+  };
 
   // Show agreement modal on first login if school is in DRAFT status - MANDATORY
   const shouldShowAgreement = school && school.status === 'DRAFT';
