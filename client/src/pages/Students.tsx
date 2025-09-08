@@ -12,10 +12,28 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ScreeningForm } from '@/components/ScreeningForm';
 import { insertEntitySchema, type InsertEntity } from '@shared/schema';
+import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
 import { colorSchemes } from '@/lib/colorSchemes';
+
+// Student form schema
+const studentFormSchema = z.object({
+  name: z.string().min(1, 'Student name is required'),
+  age: z.number().min(1, 'Age must be at least 1').max(18, 'Age must be less than 18'),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { required_error: 'Gender is required' }),
+  grade: z.string().min(1, 'Grade is required'),
+  rollNumber: z.string().min(1, 'Roll number is required'),
+  schoolId: z.number().min(1, 'School selection is required'),
+  parentName: z.string().min(1, 'Parent name is required'),
+  parentPhone: z.string().min(10, 'Valid phone number is required'),
+  parentEmail: z.string().email('Valid email is required'),
+  parentOccupation: z.string().optional(),
+  campId: z.number().min(1, 'Camp selection is required'),
+});
+
+type StudentFormData = z.infer<typeof studentFormSchema>;
 
 export function Students() {
   const { user } = useAuth();
@@ -41,16 +59,16 @@ export function Students() {
   });
 
   const { data: schools = [] } = useQuery({
-    queryKey: ['/api/schools'],
-    queryFn: () => apiRequest('/schools'),
+    queryKey: ['/api/entities', 'SCHOOL'],
+    queryFn: () => apiRequest('/entities?type=SCHOOL'),
   });
 
-  const form = useForm<InsertStudent>({
-    resolver: zodResolver(insertStudentSchema),
+  const form = useForm<StudentFormData>({
+    resolver: zodResolver(studentFormSchema),
     defaultValues: {
       name: '',
-      age: 0,
-      gender: '',
+      age: 1,
+      gender: 'MALE',
       grade: '',
       rollNumber: '',
       schoolId: 0,
@@ -63,11 +81,32 @@ export function Students() {
   });
 
   const createStudentMutation = useMutation({
-    mutationFn: (studentData: InsertStudent) => apiRequest('/students', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(studentData),
-    }),
+    mutationFn: (studentData: StudentFormData) => {
+      // Transform to entity format
+      const entityData = {
+        type: 'STUDENT',
+        name: studentData.name,
+        status: 'ACTIVE',
+        parentId: studentData.schoolId,
+        metadata: {
+          age: studentData.age,
+          gender: studentData.gender,
+          grade: studentData.grade,
+          rollNumber: studentData.rollNumber,
+          parentName: studentData.parentName,
+          parentPhone: studentData.parentPhone,
+          parentEmail: studentData.parentEmail,
+          parentOccupation: studentData.parentOccupation,
+          campId: studentData.campId,
+        }
+      };
+      
+      return apiRequest('/entities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entityData),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       toast({
@@ -86,7 +125,7 @@ export function Students() {
     },
   });
 
-  const onSubmit = (data: InsertStudent) => {
+  const onSubmit = (data: StudentFormData) => {
     createStudentMutation.mutate(data);
   };
 
@@ -119,7 +158,7 @@ export function Students() {
           </p>
         </div>
         <div className="flex space-x-2">
-          {(user?.role === 'admin' || user?.role === 'franchisee' || user?.role === 'school_admin') && (
+          {user?.roles?.some(role => ['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className={colorSchemes.students.primary}>
@@ -504,7 +543,7 @@ export function Students() {
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {(user?.role === 'dentist' || user?.role === 'admin') && !student.screeningCompleted && (
+                      {user?.roles?.some(role => ['DENTIST', 'SYSTEM_ADMIN'].includes(role)) && !student.screeningCompleted && (
                         <Button 
                           variant="ghost" 
                           size="sm"
@@ -535,7 +574,7 @@ export function Students() {
                 ? 'Try adjusting your filters or search terms.'
                 : 'Get started by registering students for dental camps.'}
             </p>
-            {(user?.role === 'admin' || user?.role === 'school_admin') && (
+            {user?.roles?.some(role => ['SYSTEM_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Register First Student
