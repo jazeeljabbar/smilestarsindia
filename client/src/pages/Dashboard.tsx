@@ -41,19 +41,19 @@ export function Dashboard() {
   const { data: students = [] } = useQuery({
     queryKey: ['/api/students'],
     queryFn: () => apiRequest('/students'),
-    enabled: user?.role === 'school_admin' || user?.role === 'admin',
+    enabled: hasAnyRole(['SCHOOL_ADMIN', 'SYSTEM_ADMIN']),
   });
 
   const { data: screenings = [] } = useQuery({
     queryKey: ['/api/screenings'],
     queryFn: () => apiRequest('/screenings'),
-    enabled: user?.role === 'parent' || user?.role === 'admin',
+    enabled: hasAnyRole(['PARENT', 'SYSTEM_ADMIN']),
   });
 
   const { data: reports = [] } = useQuery({
     queryKey: ['/api/reports'],
     queryFn: () => apiRequest('/reports'),
-    enabled: user?.role === 'parent' || user?.role === 'admin',
+    enabled: hasAnyRole(['PARENT', 'SYSTEM_ADMIN']),
   });
 
   const statsCards = [
@@ -166,7 +166,7 @@ export function Dashboard() {
     },
   });
 
-  const onFranchiseeSubmit = (data: InsertFranchise) => {
+  const onFranchiseeSubmit = (data: InsertEntity) => {
     createFranchiseMutation.mutate(data);
   };
 
