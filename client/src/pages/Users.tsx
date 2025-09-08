@@ -221,6 +221,7 @@ export function Users() {
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest(`/users/${id}/status`, {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       }),
     onSuccess: () => {

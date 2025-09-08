@@ -649,6 +649,61 @@ router.put('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_AD
   }
 });
 
+// Update user status
+router.patch('/users/:id/status', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { status } = req.body;
+    
+    // Check if user exists
+    const existingUser = await storage.getUserById(userId);
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Validate status
+    const validStatuses = ['ACTIVE', 'PENDING', 'SUSPENDED', 'INVITED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+    
+    // Prevent self-suspension
+    if (userId === req.user!.id && status === 'SUSPENDED') {
+      return res.status(400).json({ error: 'Cannot suspend yourself' });
+    }
+    
+    // Update user status
+    const updatedUser = await storage.updateUser(userId, { status });
+    
+    // Get user with memberships for response
+    const memberships = await storage.getMembershipsByUser(userId);
+    const userWithRoles = {
+      ...updatedUser,
+      roles: memberships.map(m => m.role),
+      memberships: memberships
+    };
+    
+    // Log the action
+    await storage.createAuditLog({
+      actorUserId: req.user!.id,
+      action: 'UPDATE_USER_STATUS',
+      targetId: userId,
+      targetType: 'USER',
+      metadata: {
+        oldStatus: existingUser.status,
+        newStatus: status,
+        userEmail: updatedUser.email,
+        userName: updatedUser.name
+      }
+    });
+
+    res.json(userWithRoles);
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
 // Delete user
 router.delete('/users/:id', authenticateToken, requireRole(['SYSTEM_ADMIN', 'ORG_ADMIN']), async (req: AuthenticatedRequest, res: Response) => {
   try {
