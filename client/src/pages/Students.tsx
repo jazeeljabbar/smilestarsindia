@@ -192,12 +192,13 @@ export function Students() {
                   Register Student
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
+              <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle>Register New Student</DialogTitle>
                 </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="flex-1 overflow-y-auto pr-2">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -518,7 +519,7 @@ export function Students() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex justify-end space-x-2 pt-4">
+                    <div className="flex justify-end space-x-2 pt-4 mt-6 border-t">
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                         Cancel
                       </Button>
@@ -526,8 +527,9 @@ export function Students() {
                         {createStudentMutation.isPending ? 'Registering...' : 'Register Student'}
                       </Button>
                     </div>
-                  </form>
-                </Form>
+                    </form>
+                  </Form>
+                </div>
               </DialogContent>
             </Dialog>
           )}
