@@ -191,6 +191,10 @@ export function Schools() {
         
         console.log('Sending school creation payload:', schoolData_payload);
         
+        if (!schoolData_payload.parentId) {
+          throw new Error('Franchisee ID (parentId) is required but missing');
+        }
+        
         return apiRequest('/schools', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -247,6 +251,34 @@ export function Schools() {
     console.log('User memberships:', user?.memberships);
     console.log('User roles:', user?.roles);
     console.log('Selected franchiseId:', data.franchiseId);
+    
+    // Ensure franchiseId is set for franchise admins
+    if (user?.roles?.includes('FRANCHISE_ADMIN') && !data.franchiseId) {
+      const franchiseeMembership = user?.memberships?.find((m: any) => m.role === 'FRANCHISE_ADMIN');
+      console.log('Found franchise membership:', franchiseeMembership);
+      
+      if (franchiseeMembership?.entityId) {
+        data.franchiseId = franchiseeMembership.entityId;
+        console.log('Auto-setting franchiseId to:', data.franchiseId);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Unable to determine your franchisee. Please contact support.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    
+    if (!data.franchiseId) {
+      toast({
+        title: 'Error',
+        description: 'Franchisee must be selected',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     createSchoolMutation.mutate(data);
   };
 
