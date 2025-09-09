@@ -80,7 +80,6 @@ Smile Stars India is a comprehensive web application designed to streamline prev
 
 ### Database & Infrastructure
 - **Neon Database**: Serverless PostgreSQL hosting
-- **Replit**: Development and hosting platform
 
 ### UI & Styling
 - **Radix UI**: Accessible component primitives
