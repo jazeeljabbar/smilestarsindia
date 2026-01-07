@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Calendar, Users, Eye, Edit, Trash2, UserPlus, UserMinus, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,12 @@ export function Camps() {
   const [selectedCamp, setSelectedCamp] = useState<any>(null);
   const [showEnrollmentView, setShowEnrollmentView] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [franchiseeFilter, setFranchiseeFilter] = useState<number | null>(null);
+  const [schoolFilter, setSchoolFilter] = useState<number | null>(null);
 
   // Simple form state - no complex validation
   const [formData, setFormData] = useState({
@@ -66,13 +72,66 @@ export function Camps() {
     queryFn: () => {
       // For franchise admins, don't need franchiseeId param as backend filters by their membership
       // For system/org admins, use franchiseeId if selected
-      const params = (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && formData.franchiseeId 
-        ? `?franchiseeId=${formData.franchiseeId}` 
+      const params = (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && formData.franchiseeId
+        ? `?franchiseeId=${formData.franchiseeId}`
         : '';
       return apiRequest(`/schools/list${params}`);
     },
     enabled: activeRole !== 'SCHOOL_ADMIN',
   });
+
+  // Filter camps based on search term and filters
+  const filteredCamps = useMemo(() => {
+    let filtered = camps;
+
+    // Apply franchisee filter
+    if (franchiseeFilter) {
+      filtered = filtered.filter((camp: any) => camp.franchiseeId === franchiseeFilter);
+    }
+
+    // Apply school filter
+    if (schoolFilter) {
+      filtered = filtered.filter((camp: any) => camp.schoolId === schoolFilter);
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((camp: any) => camp.status?.toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((camp: any) =>
+        camp.name?.toLowerCase().includes(term) ||
+        camp.schoolName?.toLowerCase().includes(term) ||
+        camp.description?.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  }, [camps, searchTerm, statusFilter, franchiseeFilter, schoolFilter]);
+
+  // Paginate filtered results
+  const paginatedCamps = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredCamps.slice(startIndex, endIndex);
+  }, [filteredCamps, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredCamps.length / pageSize);
+  }, [filteredCamps.length, pageSize]);
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    const total = camps.length;
+    const planned = camps.filter((c: any) => c.status === 'PLANNED' || c.status === 'planned').length;
+    const active = camps.filter((c: any) => c.status === 'ACTIVE' || c.status === 'active').length;
+    const completed = camps.filter((c: any) => c.status === 'COMPLETED' || c.status === 'completed').length;
+
+    return { total, planned, active, completed };
+  }, [camps]);
 
   // Enrollment management queries
   const { data: enrolledStudents = [], isLoading: enrolledLoading } = useQuery({
@@ -178,14 +237,14 @@ export function Camps() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     let schoolId = formData.schoolId;
-    
+
     // For school admins, automatically use their school
     if (activeRole === 'SCHOOL_ADMIN' && mySchool) {
       schoolId = mySchool.id.toString();
     }
-    
+
     // Basic validation
     if (!formData.name || !schoolId || !formData.startDate || !formData.endDate || !formData.expectedStudents) {
       toast({
@@ -210,7 +269,7 @@ export function Camps() {
     const startDate = new Date(formData.startDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (startDate <= today) {
       toast({
         title: 'Invalid Date',
@@ -263,8 +322,8 @@ export function Camps() {
   };
 
   const toggleStudentSelection = (studentId: number) => {
-    setSelectedStudents(prev => 
-      prev.includes(studentId) 
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
         ? prev.filter(id => id !== studentId)
         : [...prev, studentId]
     );
@@ -455,7 +514,7 @@ export function Camps() {
               <DialogHeader>
                 <DialogTitle>Schedule New Dental Camp</DialogTitle>
               </DialogHeader>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -474,8 +533,8 @@ export function Camps() {
                   {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && (
                     <div className="space-y-2">
                       <Label htmlFor="franchiseeId">Franchisee</Label>
-                      <Select 
-                        value={formData.franchiseeId} 
+                      <Select
+                        value={formData.franchiseeId}
                         onValueChange={(value) => {
                           setFormData({ ...formData, franchiseeId: value, schoolId: '' }); // Reset school when franchisee changes
                         }}
@@ -498,20 +557,20 @@ export function Camps() {
                   {activeRole !== 'SCHOOL_ADMIN' && (
                     <div className="space-y-2">
                       <Label htmlFor="schoolId">School</Label>
-                      <Select 
-                        value={formData.schoolId} 
+                      <Select
+                        value={formData.schoolId}
                         onValueChange={(value) => setFormData({ ...formData, schoolId: value })}
                         disabled={
                           (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue 
+                          <SelectValue
                             placeholder={
                               (activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && !formData.franchiseeId
-                                ? "Select franchisee first" 
+                                ? "Select franchisee first"
                                 : "Select school"
-                            } 
+                            }
                           />
                         </SelectTrigger>
                         <SelectContent>
@@ -578,8 +637,8 @@ export function Camps() {
 
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select 
-                      value={formData.status} 
+                    <Select
+                      value={formData.status}
                       onValueChange={(value) => setFormData({ ...formData, status: value })}
                     >
                       <SelectTrigger>
@@ -616,6 +675,128 @@ export function Camps() {
             </DialogContent>
           </Dialog>
         )}
+      </div>
+
+      {/* Advanced Filters */}
+      {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN' || activeRole === 'FRANCHISE_ADMIN') && (
+        <div className="bg-gray-50 p-4 rounded-lg border mb-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Filters & View Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Franchisee Filter - System/Org Admins only */}
+            {(activeRole === 'SYSTEM_ADMIN' || activeRole === 'ORG_ADMIN') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Franchisee</label>
+                <select
+                  value={franchiseeFilter || '0'}
+                  onChange={(e) => {
+                    const franchiseeId = e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null;
+                    setFranchiseeFilter(franchiseeId);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                  <option value="0">All Franchisees</option>
+                  {franchisees.map((franchisee: any) => (
+                    <option key={franchisee.id} value={franchisee.id.toString()}>
+                      {franchisee.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* School Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
+              <select
+                value={schoolFilter || '0'}
+                onChange={(e) => {
+                  const schoolId = e.target.value && e.target.value !== '0' ? parseInt(e.target.value) : null;
+                  setSchoolFilter(schoolId);
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="0">All Schools</option>
+                {schools.map((school: any) => (
+                  <option key={school.id} value={school.id.toString()}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="all">All Camps</option>
+                <option value="planned">Planned</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            {/* Page Size Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Results per page</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="10">10 per page</option>
+                <option value="20">20 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters & Results Summary */}
+          <div className="mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFranchiseeFilter(null);
+                setSchoolFilter(null);
+                setStatusFilter('all');
+                setCurrentPage(1);
+              }}
+              size="sm">
+              Clear All Filters
+            </Button>
+
+            {/* Results Summary */}
+            <div className="text-sm text-gray-600">
+              Showing {filteredCamps.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} - {Math.min(currentPage * pageSize, filteredCamps.length)} of {filteredCamps.length} camps
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex-1">
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by camp name, school name, description..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-10"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
@@ -720,7 +901,7 @@ export function Camps() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {camps.map((camp: any) => (
+                {paginatedCamps.map((camp: any) => (
                   <tr key={camp.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{camp.name}</div>
@@ -753,8 +934,8 @@ export function Camps() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => openEnrollmentView(camp)}
                         className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
@@ -784,7 +965,79 @@ export function Camps() {
         </CardContent>
       </Card>
 
-      {camps.length === 0 && (
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border rounded-lg">
+          <div className="flex items-center text-sm text-gray-700">
+            <span>
+              Showing {filteredCamps.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} to{' '}
+              {Math.min(currentPage * pageSize, filteredCamps.length)} of {filteredCamps.length} camps
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}>
+              First
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}>
+              Previous
+            </Button>
+
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="w-8 h-8 p-0">
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}>
+              Next
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}>
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {filteredCamps.length === 0 && !campsLoading && (
         <Card className="text-center py-12">
           <CardContent>
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Layout } from '@/components/Layout';
 import { HomePage } from '@/pages/HomePage';
 import { Login } from '@/pages/Login';
+import { Signup } from '@/pages/Signup';
 import MagicLink from '@/pages/MagicLink';
 import SimpleAuth from '@/pages/SimpleAuth';
 import { Dashboard } from '@/pages/Dashboard';
@@ -14,6 +15,7 @@ import { Schools } from '@/pages/Schools';
 import { Camps } from '@/pages/Camps';
 import { Students } from '@/pages/Students';
 import { Reports } from '@/pages/Reports';
+import { Content } from '@/pages/Content';
 import { ParentPortal } from '@/pages/ParentPortal';
 import { FranchiseAgreement } from '@/pages/FranchiseAgreement';
 import { AgreementPage } from '@/pages/AgreementPage';
@@ -40,6 +42,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/login" component={Login} />
+        <Route path="/signup" component={Signup} />
         <Route path="/auth/magic-link" component={MagicLink} />
         <Route path="/auth/simple-auth" component={SimpleAuth} />
         <Route path="/auth/agreements" component={AgreementPage} />
@@ -52,7 +55,7 @@ function AppRoutes() {
   // Show protected routes for authenticated users
   const getDashboardComponent = () => {
     if (!user?.roles || !activeRole) return Dashboard;
-    
+
     // Dashboard selection based on active role
     switch (activeRole) {
       case 'SYSTEM_ADMIN':
@@ -83,6 +86,8 @@ function AppRoutes() {
         <Route path="/students" component={Students} />
         <Route path="/reports" component={Reports} />
         <Route path="/parent-portal" component={ParentPortal} />
+        <Route path="/content" component={Content} />
+        <Route path="/content/:slug" component={Content} /> {/* Reuse for now or new component */}
         <Route component={NotFound} />
       </Switch>
     </Layout>

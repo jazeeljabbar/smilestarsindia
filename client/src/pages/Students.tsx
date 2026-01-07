@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Users, Search, Filter, Eye, FileText, X, UserPlus, Upload, Download, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Users, Search, Filter, Eye, FileText, X, UserPlus, Upload, Download, AlertTriangle, CheckCircle, MoreVertical, Trash2, Archive, ArrowRightLeft } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -76,7 +77,7 @@ export function Students() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedFranchiseeId, setSelectedFranchiseeId] = useState<number | null>(null);
   const [selectedBulkSchoolId, setSelectedBulkSchoolId] = useState<number | null>(null);
-  
+
   // Advanced filtering for admin users
   const [filterFranchiseeId, setFilterFranchiseeId] = useState<number | null>(null);
   const [filterSchoolId, setFilterSchoolId] = useState<number | null>(null);
@@ -124,7 +125,7 @@ export function Students() {
         });
         return;
       }
-      
+
       setUploadFile(file);
       setUploadStep('uploading');
       // Auto-upload the file immediately
@@ -139,7 +140,7 @@ export function Students() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -164,12 +165,12 @@ export function Students() {
     mutationFn: (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       // Add school ID for non-school admins
       if (!userRoles.includes('SCHOOL_ADMIN') && selectedBulkSchoolId) {
         formData.append('schoolId', selectedBulkSchoolId.toString());
       }
-      
+
       return apiRequest('/students/bulk-upload', {
         method: 'POST',
         body: formData,
@@ -192,12 +193,12 @@ export function Students() {
     onError: (error: any) => {
       setUploadStep('select');
       setUploadFile(null);
-      
+
       const errorData = error.response?.data;
       let errorMessage = 'Failed to upload students';
-      
+
       if (errorData?.errors && errorData.errors.length > 0) {
-        const errorDetails = errorData.errors.slice(0, 3).map((err: any) => 
+        const errorDetails = errorData.errors.slice(0, 3).map((err: any) =>
           `Row ${err.row}: ${err.error}`
         ).join('\n');
         errorMessage = `Format errors found:\n${errorDetails}`;
@@ -237,7 +238,7 @@ export function Students() {
       if (searchTerm.trim()) params.append('search', searchTerm.trim());
       params.append('page', currentPage.toString());
       params.append('pageSize', pageSize.toString());
-      
+
       return apiRequest(`/students?${params.toString()}`);
     },
   });
@@ -280,7 +281,7 @@ export function Students() {
 
   // Get dynamic form schema based on user roles
   const studentFormSchema = createStudentFormSchema(userRoles);
-  
+
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
@@ -336,6 +337,93 @@ export function Students() {
     createStudentMutation.mutate(data);
   };
 
+
+
+  // Student Actions State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [actionStudent, setActionStudent] = useState<any>(null);
+  const [targetSchoolId, setTargetSchoolId] = useState<string>('');
+
+  // Delete Mutation
+  const deleteStudentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/students/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({ title: 'Success', description: 'Student deleted successfully' });
+      setDeleteDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to delete student', variant: 'destructive' });
+    }
+  });
+
+  // Archive Mutation
+  const archiveStudentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/students/${id}/archive`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({ title: 'Success', description: 'Student archived successfully' });
+      setArchiveDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to archive student', variant: 'destructive' });
+    }
+  });
+
+  // Move Mutation
+  const moveStudentMutation = useMutation({
+    mutationFn: ({ id, targetSchoolId }: { id: number, targetSchoolId: number }) =>
+      apiRequest(`/students/${id}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetSchoolId })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({ title: 'Success', description: 'Student moved successfully' });
+      setMoveDialogOpen(false);
+      setTargetSchoolId('');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to move student', variant: 'destructive' });
+    }
+  });
+
+  const handleDeleteClick = (student: any) => {
+    setActionStudent(student);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleArchiveClick = (student: any) => {
+    setActionStudent(student);
+    setArchiveDialogOpen(true);
+  };
+
+  const handleMoveClick = (student: any) => {
+    setActionStudent(student);
+    setTargetSchoolId('');
+    setMoveDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (actionStudent) deleteStudentMutation.mutate(actionStudent.id);
+  };
+
+  const confirmArchive = () => {
+    if (actionStudent) archiveStudentMutation.mutate(actionStudent.id);
+  };
+
+  const confirmMove = () => {
+    if (actionStudent && targetSchoolId) {
+      moveStudentMutation.mutate({
+        id: actionStudent.id,
+        targetSchoolId: parseInt(targetSchoolId)
+      });
+    }
+  };
+
   const startScreening = (student: any) => {
     setSelectedStudent(student);
     setShowScreeningForm(true);
@@ -343,7 +431,7 @@ export function Students() {
 
   const filteredStudents = students.filter((student: any) => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+      (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
   });
 
@@ -367,16 +455,16 @@ export function Students() {
         <div className="flex space-x-2">
           {user?.roles?.some(role => ['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
             <>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={downloadTemplate}
                 className="flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />
                 Download Template
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowBulkUpload(true)}
                 className="flex items-center gap-2"
               >
@@ -400,114 +488,143 @@ export function Students() {
                 <div className="flex-1 overflow-y-auto pr-2">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Student Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter full name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="age"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Age</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                placeholder="Age"
-                                {...field}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="MALE">Male</SelectItem>
-                                <SelectItem value="FEMALE">Female</SelectItem>
-                                <SelectItem value="OTHER">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="grade"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Grade/Class</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Grade or class" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="rollNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Roll Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Roll number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {/* Franchisee Selection - Only for System Admins */}
-                      {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
-                          name={"franchiseeId" as any}
+                          name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Franchisee (Optional)</FormLabel>
-                              <Select
-                                value={field.value?.toString() || '0'}
-                                onValueChange={(value) => {
-                                  const franchiseeId = value && value !== '0' ? parseInt(value) : null;
-                                  field.onChange(franchiseeId);
-                                  setSelectedFranchiseeId(franchiseeId);
-                                  // Reset school selection when franchisee changes
-                                  form.setValue('schoolId', 0);
-                                }}
-                              >
+                              <FormLabel>Student Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter full name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="age"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Age</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="Age"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="gender"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Gender</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select franchisee (optional)" />
+                                    <SelectValue placeholder="Select gender" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="0">All Franchisees</SelectItem>
-                                  {(franchisees as any[]).map((franchisee: any) => (
-                                    <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
-                                      {franchisee.name}
+                                  <SelectItem value="MALE">Male</SelectItem>
+                                  <SelectItem value="FEMALE">Female</SelectItem>
+                                  <SelectItem value="OTHER">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="grade"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Grade/Class</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Grade or class" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="rollNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Roll Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Roll number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {/* Franchisee Selection - Only for System Admins */}
+                        {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+                          <FormField
+                            control={form.control}
+                            name={"franchiseeId" as any}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Franchisee (Optional)</FormLabel>
+                                <Select
+                                  value={field.value?.toString() || '0'}
+                                  onValueChange={(value) => {
+                                    const franchiseeId = value && value !== '0' ? parseInt(value) : null;
+                                    field.onChange(franchiseeId);
+                                    setSelectedFranchiseeId(franchiseeId);
+                                    // Reset school selection when franchisee changes
+                                    form.setValue('schoolId', 0);
+                                  }}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select franchisee (optional)" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="0">All Franchisees</SelectItem>
+                                    {(franchisees as any[]).map((franchisee: any) => (
+                                      <SelectItem key={franchisee.id} value={franchisee.id.toString()}>
+                                        {franchisee.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        <FormField
+                          control={form.control}
+                          name="schoolId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>School</FormLabel>
+                              <Select
+                                value={field.value?.toString() || '0'}
+                                onValueChange={(value) => field.onChange(value && value !== '0' ? parseInt(value) : 0)}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select school" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {availableSchools.map((school: any) => (
+                                    <SelectItem key={school.id} value={school.id.toString()}>
+                                      {school.name}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -516,235 +633,206 @@ export function Students() {
                             </FormItem>
                           )}
                         />
-                      )}
 
-                      <FormField
-                        control={form.control}
-                        name="schoolId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>School</FormLabel>
-                            <Select 
-                          value={field.value?.toString() || '0'}
-                          onValueChange={(value) => field.onChange(value && value !== '0' ? parseInt(value) : 0)}
-                        >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select school" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {availableSchools.map((school: any) => (
-                                  <SelectItem key={school.id} value={school.id.toString()}>
-                                    {school.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* Parents Section */}
-                      <div className="md:col-span-2">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold">Parent/Guardian Information</h3>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addParent}
-                            disabled={form.getValues().parents.length >= 4}
-                            className="flex items-center gap-2"
-                          >
-                            <UserPlus className="h-4 w-4" />
-                            Add Parent
-                          </Button>
-                        </div>
+                        {/* Parents Section */}
+                        <div className="md:col-span-2">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Parent/Guardian Information</h3>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addParent}
+                              disabled={form.getValues().parents.length >= 4}
+                              className="flex items-center gap-2"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                              Add Parent
+                            </Button>
+                          </div>
 
-                        {form.watch('parents').map((parent, index) => (
-                          <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-medium">Parent {index + 1}</h4>
-                              {form.getValues().parents.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeParent(index)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <FormField
-                                control={form.control}
-                                name={`parents.${index}.name`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Full Name *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="Parent full name" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
+                          {form.watch('parents').map((parent, index) => (
+                            <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-medium">Parent {index + 1}</h4>
+                                {form.getValues().parents.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeParent(index)}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
                                 )}
-                              />
+                              </div>
 
-                              <FormField
-                                control={form.control}
-                                name={`parents.${index}.relationship`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Relationship *</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select relationship" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="MOTHER">Mother</SelectItem>
-                                        <SelectItem value="FATHER">Father</SelectItem>
-                                        <SelectItem value="GUARDIAN">Guardian</SelectItem>
-                                        <SelectItem value="OTHER">Other</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name={`parents.${index}.email`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Email Address *</FormLabel>
-                                    <FormControl>
-                                      <Input type="email" placeholder="parent@example.com" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name={`parents.${index}.phone`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Phone Number *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="+91-9876543210" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name={`parents.${index}.occupation`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Occupation</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="Occupation (optional)" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-
-                            <Separator className="my-3" />
-                            
-                            {/* Custody and Permissions */}
-                            <div className="space-y-3">
-                              <h5 className="text-sm font-medium text-gray-700">Permissions & Custody</h5>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <FormField
                                   control={form.control}
-                                  name={`parents.${index}.hasCustody`}
+                                  name={`parents.${index}.name`}
                                   render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormItem>
+                                      <FormLabel>Full Name *</FormLabel>
                                       <FormControl>
-                                        <Checkbox 
-                                          checked={field.value} 
-                                          onCheckedChange={field.onChange} 
-                                        />
+                                        <Input placeholder="Parent full name" {...field} />
                                       </FormControl>
-                                      <FormLabel className="text-sm">Has Legal Custody</FormLabel>
+                                      <FormMessage />
                                     </FormItem>
                                   )}
                                 />
 
                                 <FormField
                                   control={form.control}
-                                  name={`parents.${index}.canPickup`}
+                                  name={`parents.${index}.relationship`}
                                   render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                                      <FormControl>
-                                        <Checkbox 
-                                          checked={field.value} 
-                                          onCheckedChange={field.onChange} 
-                                        />
-                                      </FormControl>
-                                      <FormLabel className="text-sm">Can Pick Up Student</FormLabel>
+                                    <FormItem>
+                                      <FormLabel>Relationship *</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select relationship" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="MOTHER">Mother</SelectItem>
+                                          <SelectItem value="FATHER">Father</SelectItem>
+                                          <SelectItem value="GUARDIAN">Guardian</SelectItem>
+                                          <SelectItem value="OTHER">Other</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
                                     </FormItem>
                                   )}
                                 />
 
                                 <FormField
                                   control={form.control}
-                                  name={`parents.${index}.emergencyContact`}
+                                  name={`parents.${index}.email`}
                                   render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormItem>
+                                      <FormLabel>Email Address *</FormLabel>
                                       <FormControl>
-                                        <Checkbox 
-                                          checked={field.value} 
-                                          onCheckedChange={field.onChange} 
-                                        />
+                                        <Input type="email" placeholder="parent@example.com" {...field} />
                                       </FormControl>
-                                      <FormLabel className="text-sm">Emergency Contact</FormLabel>
+                                      <FormMessage />
                                     </FormItem>
                                   )}
                                 />
 
                                 <FormField
                                   control={form.control}
-                                  name={`parents.${index}.medicalDecisions`}
+                                  name={`parents.${index}.phone`}
                                   render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormItem>
+                                      <FormLabel>Phone Number *</FormLabel>
                                       <FormControl>
-                                        <Checkbox 
-                                          checked={field.value} 
-                                          onCheckedChange={field.onChange} 
-                                        />
+                                        <Input placeholder="+91-9876543210" {...field} />
                                       </FormControl>
-                                      <FormLabel className="text-sm">Medical Decisions</FormLabel>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`parents.${index}.occupation`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Occupation</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Occupation (optional)" {...field} />
+                                      </FormControl>
+                                      <FormMessage />
                                     </FormItem>
                                   )}
                                 />
                               </div>
+
+                              <Separator className="my-3" />
+
+                              {/* Custody and Permissions */}
+                              <div className="space-y-3">
+                                <h5 className="text-sm font-medium text-gray-700">Permissions & Custody</h5>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <FormField
+                                    control={form.control}
+                                    name={`parents.${index}.hasCustody`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm">Has Legal Custody</FormLabel>
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`parents.${index}.canPickup`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm">Can Pick Up Student</FormLabel>
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`parents.${index}.emergencyContact`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm">Emergency Contact</FormLabel>
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`parents.${index}.medicalDecisions`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm">Medical Decisions</FormLabel>
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex justify-end space-x-2 pt-4 mt-6 border-t">
-                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={createStudentMutation.isPending}>
-                        {createStudentMutation.isPending ? 'Registering...' : 'Register Student'}
-                      </Button>
-                    </div>
+                      <div className="flex justify-end space-x-2 pt-4 mt-6 border-t">
+                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={createStudentMutation.isPending}>
+                          {createStudentMutation.isPending ? 'Registering...' : 'Register Student'}
+                        </Button>
+                      </div>
                     </form>
                   </Form>
                 </div>
@@ -766,7 +854,7 @@ export function Students() {
                       {!userRoles.includes('SCHOOL_ADMIN') && (
                         <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
                           <h4 className="font-medium text-gray-900">Select Target School</h4>
-                          
+
                           {/* Franchisee Selection - Only for System Admins */}
                           {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
                             <div>
@@ -835,8 +923,8 @@ export function Students() {
                             }
                           }}
                         />
-                        <Button 
-                          type="button" 
+                        <Button
+                          type="button"
                           onClick={() => {
                             if (userRoles.includes('SCHOOL_ADMIN') || selectedBulkSchoolId) {
                               document.getElementById('file-upload')?.click();
@@ -878,7 +966,7 @@ export function Students() {
                       </p>
                     </div>
                   )}
-                  
+
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h4 className="font-medium text-blue-900 mb-2">Required Excel Format:</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
@@ -894,7 +982,7 @@ export function Students() {
                       <li>• <strong>Permission fields</strong> - Use TRUE or FALSE</li>
                     </ul>
                   </div>
-                  
+
                   <div className="bg-amber-50 p-4 rounded-lg">
                     <h4 className="font-medium text-amber-900 mb-2">⚠️ Common Issues:</h4>
                     <ul className="text-sm text-amber-800 space-y-1">
@@ -909,9 +997,9 @@ export function Students() {
                 </div>
 
                 <div className="flex justify-end pt-4 mt-6 border-t">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => {
                       setShowBulkUpload(false);
                       setUploadStep('select');
@@ -1031,7 +1119,7 @@ export function Students() {
             >
               Clear All Filters
             </Button>
-            
+
             {/* Results Summary */}
             <div className="text-sm text-gray-600">
               Showing {students.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} - {Math.min(currentPage * pageSize, totalStudents)} of {totalStudents} students
@@ -1123,7 +1211,7 @@ export function Students() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Completion Rate</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {filteredStudents.length > 0 
+                  {filteredStudents.length > 0
                     ? Math.round((filteredStudents.filter((s: any) => s.screeningCompleted).length / filteredStudents.length) * 100)
                     : 0}%
                 </p>
@@ -1201,19 +1289,50 @@ export function Students() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {user?.roles?.some(role => ['DENTIST', 'SYSTEM_ADMIN'].includes(role)) && !student.screeningCompleted && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => startScreening(student)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <FileText className="h-4 w-4" />
+                      <div className="flex items-center space-x-2">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
+
+                        {user?.roles?.some(role => ['DENTIST', 'SYSTEM_ADMIN'].includes(role)) && !student.screeningCompleted && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startScreening(student)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN'].includes(role)) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleMoveClick(student)}>
+                                <ArrowRightLeft className="mr-2 h-4 w-4" /> Move School
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleArchiveClick(student)}>
+                                <Archive className="mr-2 h-4 w-4" /> Archive
+                              </DropdownMenuItem>
+                              {(userRoles.includes('SYSTEM_ADMIN') || userRoles.includes('ORG_ADMIN')) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeleteClick(student)} className="text-red-600 focus:text-red-600">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1232,7 +1351,7 @@ export function Students() {
               {Math.min(currentPage * pageSize, totalStudents)} of {totalStudents} students
             </span>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
@@ -1242,7 +1361,7 @@ export function Students() {
             >
               First
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -1251,7 +1370,7 @@ export function Students() {
             >
               Previous
             </Button>
-            
+
             <div className="flex items-center space-x-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum;
@@ -1264,7 +1383,7 @@ export function Students() {
                 } else {
                   pageNum = currentPage - 2 + i;
                 }
-                
+
                 return (
                   <Button
                     key={pageNum}
@@ -1278,7 +1397,7 @@ export function Students() {
                 );
               })}
             </div>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -1287,7 +1406,7 @@ export function Students() {
             >
               Next
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -1308,7 +1427,7 @@ export function Students() {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No students found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || selectedCamp !== 'all' 
+              {searchTerm || selectedCamp !== 'all'
                 ? 'Try adjusting your filters or search terms.'
                 : 'Get started by registering students for dental camps.'}
             </p>

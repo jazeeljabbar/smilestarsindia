@@ -82,6 +82,8 @@ export function Users() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showAddRoleDialog, setShowAddRoleDialog] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -273,7 +275,7 @@ export function Users() {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     editForm.reset({
-      username: user.email, 
+      username: user.email,
       email: user.email,
       name: user.name,
       roles: (user as any).roles || [],
@@ -310,18 +312,52 @@ export function Users() {
     );
   };
 
+  // Filter users based on search, status, and role filters
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+
+    let filtered = users;
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((u: any) => u.status?.toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((u: any) =>
+        u.name?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term) ||
+        u.username?.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  }, [users, searchTerm, statusFilter]);
+
   // Pagination logic
   const paginatedUsers = useMemo(() => {
-    if (!users) return [];
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return users.slice(startIndex, endIndex);
-  }, [users, currentPage, itemsPerPage]);
+    return filteredUsers.slice(startIndex, endIndex);
+  }, [filteredUsers, currentPage, itemsPerPage]);
 
   const totalPages = useMemo(() => {
-    if (!users) return 0;
-    return Math.ceil(users.length / itemsPerPage);
-  }, [users, itemsPerPage]);
+    return Math.ceil(filteredUsers.length / itemsPerPage);
+  }, [filteredUsers.length, itemsPerPage]);
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    if (!users) return { total: 0, active: 0, pending: 0, suspended: 0 };
+
+    const total = users.length;
+    const active = users.filter((u: any) => u.status === 'ACTIVE').length;
+    const pending = users.filter((u: any) => u.status === 'PENDING' || u.status === 'INVITED').length;
+    const suspended = users.filter((u: any) => u.status === 'SUSPENDED').length;
+
+    return { total, active, pending, suspended };
+  }, [users]);
 
   const handlePreviousPage = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -352,7 +388,7 @@ export function Users() {
             Create, edit, and manage user accounts and their roles.
           </p>
         </div>
-        
+
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button className={colorSchemes.users.primary}>
@@ -414,8 +450,8 @@ export function Users() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Roles</FormLabel>
-                      <Select 
-                        value={field.value?.[0] || ""} 
+                      <Select
+                        value={field.value?.[0] || ""}
                         onValueChange={(value) => {
                           const newRoles = [value];
                           field.onChange(newRoles);
@@ -505,19 +541,19 @@ export function Users() {
                       <FormItem>
                         <FormLabel>Search for Student</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Type student name to search..." 
+                          <Input
+                            placeholder="Type student name to search..."
                             {...field}
                           />
                         </FormControl>
                         <FormMessage />
                         {field.value && field.value.length > 2 && (
                           <div className="mt-2 border rounded-md p-2 bg-gray-50 max-h-40 overflow-y-auto">
-                            {students?.filter((student: any) => 
+                            {students?.filter((student: any) =>
                               student.name.toLowerCase().includes(field.value?.toLowerCase())
                             ).map((student: any) => (
-                              <div 
-                                key={student.id} 
+                              <div
+                                key={student.id}
                                 className="p-2 hover:bg-gray-100 cursor-pointer rounded"
                                 onClick={() => {
                                   // Add student selection logic here
@@ -626,7 +662,7 @@ export function Users() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm">
@@ -676,7 +712,7 @@ export function Users() {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {users && users.length > itemsPerPage && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
@@ -782,10 +818,10 @@ export function Users() {
                     <FormItem>
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Enter new password (leave empty to keep current)" 
-                          {...field} 
+                        <Input
+                          type="password"
+                          placeholder="Enter new password (leave empty to keep current)"
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
@@ -798,8 +834,8 @@ export function Users() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Primary Role</FormLabel>
-                      <Select 
-                        value={field.value?.[0] || ""} 
+                      <Select
+                        value={field.value?.[0] || ""}
                         onValueChange={(value) => {
                           field.onChange([value]);
                         }}
@@ -883,7 +919,7 @@ export function Users() {
                   ))}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Add New Role:</label>
                 <Select onValueChange={(role) => {
@@ -901,10 +937,10 @@ export function Users() {
                     {['SYSTEM_ADMIN', 'FRANCHISE_ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER', 'DENTIST', 'PARENT']
                       .filter(role => !((selectedUserForRole as any).roles || []).includes(role))
                       .map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
+                        <SelectItem key={role} value={role}>
+                          {role.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

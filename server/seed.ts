@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { storage } from './storage';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';

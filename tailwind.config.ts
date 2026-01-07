@@ -1,4 +1,6 @@
-import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
+import animate from "tailwindcss-animate";
+import { type Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
@@ -10,40 +12,44 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        serif: ["'Playfair Display'", "serif"],
+        sans: ["'Inter'", "sans-serif"],
+      },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "#F9F7F4", // Cream background
+        foreground: "#1A1A1A", // Near black text
         card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT: "#FFFFFF",
+          foreground: "#1A1A1A",
         },
         popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT: "#FFFFFF",
+          foreground: "#1A1A1A",
         },
         primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT: "#2B5740", // Dark Forest Green
+          foreground: "#FFFFFF",
         },
         secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT: "#8B4367", // Plum accent
+          foreground: "#FFFFFF",
         },
         muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT: "#E8F5E9", // Pale Mint
+          foreground: "#2B5740",
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT: "#E8F5E9", // Pale Mint
+          foreground: "#2B5740",
         },
         destructive: {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
         },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        border: "#E2E8F0",
+        input: "#E2E8F0",
+        ring: "#2B5740",
         chart: {
           "1": "var(--chart-1)",
           "2": "var(--chart-2)",
@@ -86,5 +92,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [animate, typography],
 } satisfies Config;

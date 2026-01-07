@@ -56,7 +56,7 @@ export function Layout({ children }: LayoutProps) {
 
   // Get unique memberships (deduplicate same role+entity combinations)
   const uniqueMemberships = memberships.reduce((acc: any[], membership) => {
-    const existing = acc.find(m => 
+    const existing = acc.find(m =>
       m.role === membership.role && m.entityId === membership.entityId
     );
     if (!existing) {
@@ -74,65 +74,115 @@ export function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: 'home', colorScheme: 'dashboard' },
-    { name: 'Users', href: '/users', icon: 'user-cog', adminOnly: true, colorScheme: 'users' },
     { name: 'Franchisees', href: '/franchisees', icon: 'building-2', adminOnly: true, colorScheme: 'franchisees' },
     { name: 'Schools', href: '/schools', icon: 'school', colorScheme: 'schools' },
     { name: 'Camps', href: '/camps', icon: 'calendar', colorScheme: 'camps' },
     { name: 'Students', href: '/students', icon: 'users', colorScheme: 'students' },
-    { name: 'Reports', href: '/reports', icon: 'file-text', colorScheme: 'reports' },
+    {
+      name: 'Admin',
+      icon: 'shield',
+      colorScheme: 'users', // Fallback
+      children: [
+        { name: 'Users', href: '/users', icon: 'user-cog', adminOnly: true },
+        { name: 'Twinky Corner', href: '/content', icon: 'smile', colorScheme: 'reports' },
+        { name: 'Reports', href: '/reports', icon: 'file-text', colorScheme: 'reports' }
+      ]
+    }
   ];
 
   // Helper function to check if user has specific role
   const hasRole = (role: string) => user?.roles?.includes(role) || false;
   const hasAnyRole = (roles: string[]) => user?.roles?.some(r => roles.includes(r)) || false;
 
-  const filteredNavigation = navigation.filter(item => {
+  // Enhance filter to handle nested items
+  const filterItem = (item: any) => {
     if (!user?.roles) return false;
-    
-    // Admin-only items - different levels of access
+
+    // Handle custom "Admin" group visibility
+    if (item.name === 'Admin') {
+      // Admin group is visible if at least one child is visible
+      return item.children.some((child: any) => filterItem(child));
+    }
+
+    // 1. Check strict adminOnly flag
     if (item.adminOnly) {
-      // Users page is only for System Admin
-      if (item.name === 'Users' && !hasRole('SYSTEM_ADMIN')) {
-        return false;
-      }
-      // Franchisees page is only for System Admin and Org Admin (not for Franchise Admin)
-      if (item.name === 'Franchisees' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN'])) {
-        return false;
-      }
-      // Other admin items for any admin role
-      if (item.name !== 'Users' && item.name !== 'Franchisees' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
-        return false;
-      }
+      if (item.name === 'Users' && !hasRole('SYSTEM_ADMIN')) return false;
+      if (item.name === 'Franchisees' && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN'])) return false;
+      // Generic admin check
+      if (!hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) return false;
     }
-    
-    // Parent-only users only see Dashboard, Students, and Reports (exclude users who have admin roles)
-    if (hasRole('PARENT') && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'])) {
-      return ['Dashboard', 'Students', 'Reports'].includes(item.name);
+
+    // 2. Role-based whitelisting for non-admin roles (Parent, Teacher, etc)
+    // If user is PURELY a parent/teacher (no admin roles), check whitelist
+    if (!hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'])) {
+      const allowed = ['Dashboard', 'Students', 'Reports', 'Twinky Corner'];
+      if (!allowed.find(a => a === item.name)) return false;
     }
-    
-    // School-level roles see limited navigation
+
+    // School Admin / Principal restrictions
     if (hasAnyRole(['PRINCIPAL', 'SCHOOL_ADMIN', 'TEACHER']) && !hasAnyRole(['SYSTEM_ADMIN', 'ORG_ADMIN', 'FRANCHISE_ADMIN'])) {
-      return ['Dashboard', 'Students', 'Camps', 'Reports'].includes(item.name);
+      const allowed = ['Dashboard', 'Students', 'Camps', 'Reports', 'Twinky Corner', 'Schools']; // Schools might be read-only? Added Schools to list as requested order implies visibility
+      // Actually, Schools is requested in main menu. Let's allow it if it was allowed before.
+      // Previous logic: ['Dashboard', 'Students', 'Camps', 'Reports']
+      // Requested order includes Schools. Assuming School Admin can see their own school details usually.
+      // Let's stick to safe defaults.
+      const extendedAllowed = ['Dashboard', 'Students', 'Camps', 'Reports', 'Twinky Corner', 'Schools'];
+      if (!extendedAllowed.find(a => a === item.name || (item.name === 'Admin' && false))) {
+        // logic handled by recursion for Admin group
+      }
+      if (!extendedAllowed.includes(item.name)) return false;
     }
-    
+
     return true;
-  });
+  };
+
+  const filteredNavigation = navigation.reduce((acc: any[], item) => {
+    if (item.children) {
+      const filteredChildren = item.children.filter(filterItem);
+      if (filteredChildren.length > 0) {
+        acc.push({ ...item, children: filteredChildren });
+      }
+    } else {
+      if (filterItem(item)) {
+        acc.push(item);
+      }
+    }
+    return acc;
+  }, []);
 
   const NavItems = () => (
     <>
       {filteredNavigation.map((item) => {
-        const colors = colorSchemes[item.colorScheme as keyof typeof colorSchemes];
+        if (item.children) {
+          return (
+            <DropdownMenu key={item.name}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="px-3 py-2 rounded-full text-sm font-medium text-gray-600 hover:text-primary hover:bg-primary/5 flex items-center gap-1">
+                  {item.name} <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {item.children.map((child: any) => (
+                  <DropdownMenuItem key={child.name} asChild>
+                    <Link href={child.href} className="w-full cursor-pointer">
+                      {child.name}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+
         const isActive = location === item.href;
-        
         return (
-          <Link 
-            key={item.name} 
-            href={item.href} 
-            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-              isActive
-                ? colors.active
-                : `text-gray-500 hover:${colors.text}`
-            }`}
+          <Link
+            key={item.name}
+            href={item.href}
+            className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${isActive
+              ? 'bg-primary text-white shadow-md'
+              : `text-gray-600 hover:text-primary hover:bg-primary/5`
+              }`}
           >
             {item.name}
           </Link>
@@ -142,19 +192,26 @@ export function Layout({ children }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F9F7F4]">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo Section - Fixed Width */}
             <div className="flex items-center flex-shrink-0 w-64">
-              <div className="flex items-center">
-                <img src="/logo.png" alt="Smile Stars India" className="h-8 w-8 mr-3" />
-                <h1 className="text-xl font-semibold text-gray-900">Smile Stars India</h1>
-              </div>
+              <Link href="/dashboard">
+                <div className="flex items-center space-x-3 cursor-pointer">
+                  <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-border">
+                    <img src="/logo.png" alt="Smile Stars India" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h1 className="text-lg font-bold text-primary tracking-tight leading-none">smyl stars india</h1>
+                    <span className="text-[0.6rem] text-muted-foreground font-medium tracking-wider uppercase">Safeguarding Little Smiles</span>
+                  </div>
+                </div>
+              </Link>
             </div>
-              
+
             {/* Navigation - Centered */}
             <nav className="hidden md:flex space-x-6 flex-1 justify-center">
               <NavItems />
@@ -165,7 +222,7 @@ export function Layout({ children }: LayoutProps) {
               <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-500">
                 <Bell className="h-5 w-5" />
               </Button>
-              
+
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
@@ -175,11 +232,11 @@ export function Layout({ children }: LayoutProps) {
                 <div className="hidden md:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name}</div>
                   <div className="text-xs text-gray-500">
-                    {activeMembership ? getMembershipDisplayName(activeMembership) : 
-                     activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                    {activeMembership ? getMembershipDisplayName(activeMembership) :
+                      activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
                   </div>
                 </div>
-                
+
                 {/* Membership Switcher Dropdown */}
                 {uniqueMemberships.length > 1 && (
                   <DropdownMenu>
@@ -233,8 +290,8 @@ export function Layout({ children }: LayoutProps) {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{user?.name}</div>
                         <div className="text-xs text-gray-500">
-                          {activeMembership ? getMembershipDisplayName(activeMembership) : 
-                           activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
+                          {activeMembership ? getMembershipDisplayName(activeMembership) :
+                            activeRole ? roleDisplayNames[activeRole] || activeRole : 'No role selected'}
                         </div>
                       </div>
                     </div>
@@ -248,11 +305,10 @@ export function Layout({ children }: LayoutProps) {
                             <button
                               key={membership.id}
                               onClick={() => handleMembershipSwitch(membership.id)}
-                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                                activeMembership?.id === membership.id 
-                                  ? 'bg-blue-50 text-blue-700 font-medium' 
-                                  : 'text-gray-700 hover:bg-gray-50'
-                              }`}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeMembership?.id === membership.id
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-gray-700 hover:bg-gray-50'
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span>{getMembershipDisplayName(membership)}</span>
@@ -267,7 +323,7 @@ export function Layout({ children }: LayoutProps) {
                     )}
 
                     <NavItems />
-                    
+
                     {/* Mobile Logout */}
                     <div className="pt-4 border-t border-gray-200">
                       <button

@@ -3,9 +3,9 @@ import {
   ParentStudentLink, InsertParentStudentLink, Agreement, InsertAgreement,
   AgreementAcceptance, InsertAgreementAcceptance, AuditLog, InsertAuditLog,
   MagicToken, InsertMagicToken, Camp, InsertCamp, CampEnrollment, InsertCampEnrollment,
-  Screening, InsertScreening, Report, InsertReport,
+  Screening, InsertScreening, Report, InsertReport, Consent, InsertConsent, ContentItem, InsertContentItem,
   users, entities, memberships, parentStudentLinks, agreements, agreementAcceptances,
-  auditLogs, magicTokens, camps, campEnrollments, screenings, reports
+  auditLogs, magicTokens, camps, campEnrollments, screenings, reports, consents, contentItems
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, inArray, isNull, or } from "drizzle-orm";
@@ -18,6 +18,11 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
 
+  // Student Actions
+  deleteStudent(id: number): Promise<void>;
+  archiveStudent(id: number): Promise<void>;
+  moveStudent(id: number, targetSchoolId: number): Promise<void>;
+
   // Entities
   createEntity(entity: InsertEntity): Promise<Entity>;
   getEntityById(id: number): Promise<Entity | null>;
@@ -26,7 +31,7 @@ export interface IStorage {
   getAllEntities(): Promise<Entity[]>;
   updateEntity(id: number, updates: Partial<InsertEntity>): Promise<Entity>;
   deleteEntity(id: number): Promise<void>;
-  
+
   // Entity relationship helpers
   getSchoolsByFranchisee(franchiseeId: number): Promise<Entity[]>;
   getStudentsBySchool(schoolId: number): Promise<Entity[]>;
@@ -92,12 +97,26 @@ export interface IStorage {
   getScreeningsByDentist(dentistUserId: number): Promise<Screening[]>;
   updateScreening(id: number, updates: Partial<InsertScreening>): Promise<Screening>;
 
+  // Consents
+  createConsent(consent: InsertConsent): Promise<Consent>;
+  getConsentById(id: number): Promise<Consent | null>;
+  getConsentByCampAndStudent(campId: number, studentEntityId: number): Promise<Consent | null>;
+  updateConsent(id: number, updates: Partial<InsertConsent>): Promise<Consent>;
+
   // Reports
   createReport(report: InsertReport): Promise<Report>;
   getAllReports(): Promise<Report[]>;
   getReportById(id: number): Promise<Report | null>;
   getReportsByStudentEntity(studentEntityId: number): Promise<Report[]>;
   updateReport(id: number, updates: Partial<InsertReport>): Promise<Report>;
+
+  // Content (Twinky Corner)
+  createContent(content: InsertContentItem): Promise<ContentItem>;
+  getAllContent(): Promise<ContentItem[]>;
+  getPublicContent(): Promise<ContentItem[]>;
+  getContentBySlug(slug: string): Promise<ContentItem | null>;
+  updateContent(id: number, updates: Partial<InsertContentItem>): Promise<ContentItem>;
+  deleteContent(id: number): Promise<void>;
 }
 
 // Database Storage Implementation
@@ -171,6 +190,48 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEntity(id: number): Promise<void> {
     await db.delete(entities).where(eq(entities.id, id));
+  }
+
+  // Student Actions Implementation
+  async deleteStudent(id: number): Promise<void> {
+    // Transactional delete of student and all related records
+    await db.transaction(async (tx) => {
+      // 1. Delete parent-student links
+      await tx.delete(parentStudentLinks).where(eq(parentStudentLinks.studentEntityId, id));
+
+      // 2. Delete camp enrollments
+      await tx.delete(campEnrollments).where(eq(campEnrollments.studentEntityId, id));
+
+      // 3. Delete reports (optional: could be kept if needed, but "delete" usually implies hard delete)
+      await tx.delete(reports).where(eq(reports.studentEntityId, id));
+
+      // 4. Delete screenings
+      await tx.delete(screenings).where(eq(screenings.studentEntityId, id));
+
+      // 5. Finally delete the student entity
+      await tx.delete(entities).where(and(eq(entities.id, id), eq(entities.type, 'STUDENT')));
+    });
+  }
+
+  async archiveStudent(id: number): Promise<void> {
+    await db
+      .update(entities)
+      .set({
+        status: 'ARCHIVED',
+        parentId: null, // Remove association with current school
+        updatedAt: new Date()
+      })
+      .where(and(eq(entities.id, id), eq(entities.type, 'STUDENT')));
+  }
+
+  async moveStudent(id: number, targetSchoolId: number): Promise<void> {
+    await db
+      .update(entities)
+      .set({
+        parentId: targetSchoolId,
+        updatedAt: new Date()
+      })
+      .where(and(eq(entities.id, id), eq(entities.type, 'STUDENT')));
   }
 
   // Entity relationship helpers
@@ -407,9 +468,9 @@ export class DatabaseStorage implements IStorage {
       })
       .from(campEnrollments)
       .where(eq(campEnrollments.campId, campId));
-    
+
     if (enrollments.length === 0) return [];
-    
+
     const studentIds = enrollments.map(e => e.studentEntityId);
     return await db
       .select()
@@ -510,6 +571,73 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reports.id, id))
       .returning();
     return report;
+  }
+
+  // Consents Implementation
+  async createConsent(consent: InsertConsent): Promise<Consent> {
+    const [newConsent] = await db.insert(consents).values(consent).returning();
+    return newConsent;
+  }
+
+  async getConsentById(id: number): Promise<Consent | null> {
+    const [consent] = await db.select().from(consents).where(eq(consents.id, id));
+    return consent || null;
+  }
+
+  async getConsentByCampAndStudent(campId: number, studentEntityId: number): Promise<Consent | null> {
+    const [consent] = await db
+      .select()
+      .from(consents)
+      .where(and(eq(consents.campId, campId), eq(consents.studentEntityId, studentEntityId)));
+    return consent || null;
+  }
+
+  async updateConsent(id: number, updates: Partial<InsertConsent>): Promise<Consent> {
+    const [updatedConsent] = await db
+      .update(consents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(consents.id, id))
+      .returning();
+    return updatedConsent;
+  }
+
+
+
+  // Content (Twinky Corner)
+  async createContent(content: InsertContentItem): Promise<ContentItem> {
+    const [item] = await db
+      .insert(contentItems)
+      .values(content)
+      .returning();
+    return item;
+  }
+
+  async getAllContent(): Promise<ContentItem[]> {
+    return await db.select().from(contentItems).orderBy(desc(contentItems.createdAt));
+  }
+
+  async getPublicContent(): Promise<ContentItem[]> {
+    return await db.select().from(contentItems)
+      .where(eq(contentItems.status, 'PUBLISHED'))
+      .orderBy(desc(contentItems.publishedAt));
+  }
+
+  async getContentBySlug(slug: string): Promise<ContentItem | null> {
+    const [item] = await db.select().from(contentItems).where(eq(contentItems.slug, slug));
+    return item || null;
+  }
+
+  async updateContent(id: number, updates: Partial<InsertContentItem>): Promise<ContentItem> {
+    const [item] = await db
+      .update(contentItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteContent(id: number): Promise<void> {
+    await db.delete(contentItems).where(eq(contentItems.id, id));
   }
 }
 

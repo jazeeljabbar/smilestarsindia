@@ -25,6 +25,9 @@ export function Franchisees() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFranchise, setEditingFranchise] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Only system admins can access this page
   if (!user?.roles?.includes('SYSTEM_ADMIN')) {
@@ -50,20 +53,42 @@ export function Franchisees() {
     },
   });
 
-  // Filter franchises based on search term
+  // Filter franchises based on search term and status
   const filteredFranchises = useMemo(() => {
-    if (!searchTerm.trim()) return franchises;
-    
-    const term = searchTerm.toLowerCase();
-    return franchises.filter((franchise: any) =>
-      franchise.name?.toLowerCase().includes(term) ||
-      franchise.region?.toLowerCase().includes(term) ||
-      franchise.contactPerson?.toLowerCase().includes(term) ||
-      franchise.contactEmail?.toLowerCase().includes(term) ||
-      franchise.city?.toLowerCase().includes(term) ||
-      franchise.state?.toLowerCase().includes(term)
-    );
-  }, [franchises, searchTerm]);
+    let filtered = franchises;
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      const isActive = statusFilter === 'active';
+      filtered = filtered.filter((franchise: any) => franchise.isActive === isActive);
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((franchise: any) =>
+        franchise.name?.toLowerCase().includes(term) ||
+        franchise.region?.toLowerCase().includes(term) ||
+        franchise.contactPerson?.toLowerCase().includes(term) ||
+        franchise.contactEmail?.toLowerCase().includes(term) ||
+        franchise.city?.toLowerCase().includes(term) ||
+        franchise.state?.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  }, [franchises, searchTerm, statusFilter]);
+
+  // Paginate filtered results
+  const paginatedFranchises = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredFranchises.slice(startIndex, endIndex);
+  }, [filteredFranchises, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredFranchises.length / pageSize);
+  }, [filteredFranchises.length, pageSize]);
 
   // Calculate statistics
   const statistics = useMemo(() => {
@@ -71,7 +96,7 @@ export function Franchisees() {
     const active = franchises.filter((f: any) => f.isActive).length;
     const inactive = total - active;
     const totalSchools = franchises.reduce((sum: number, f: any) => sum + (f.schoolCount || 0), 0);
-    
+
     return { total, active, inactive, totalSchools };
   }, [franchises]);
 
@@ -123,7 +148,7 @@ export function Franchisees() {
           franchisePincode: data.franchisePincode,
         }
       };
-      
+
       const response = await fetch('/api/franchises', {
         method: 'POST',
         headers: {
@@ -202,7 +227,7 @@ export function Franchisees() {
           franchisePincode: data.franchisePincode,
         }
       };
-      
+
       const response = await apiRequest(`/franchises/${id}`, {
         method: 'PUT',
         body: JSON.stringify(entityData),
@@ -471,7 +496,7 @@ export function Franchisees() {
                   </Button>
                   <Button type="submit" disabled={createFranchiseMutation.isPending || updateFranchiseMutation.isPending}>
                     {(createFranchiseMutation.isPending || updateFranchiseMutation.isPending)
-                      ? (editingFranchise ? 'Updating...' : 'Creating...') 
+                      ? (editingFranchise ? 'Updating...' : 'Creating...')
                       : (editingFranchise ? 'Update Franchise' : 'Create Franchisee')
                     }
                   </Button>
@@ -482,212 +507,347 @@ export function Franchisees() {
         </Dialog>
       </div>
 
-      {/* Statistics Cards */}
-      {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Franchisees</p>
-                  <p className="text-2xl font-bold text-gray-900">{statistics.total}</p>
-                </div>
-                <Building2 className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Active</p>
-                  <p className="text-2xl font-bold text-green-600">{statistics.active}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Inactive</p>
-                  <p className="text-2xl font-bold text-gray-500">{statistics.inactive}</p>
-                </div>
-                <Clock className="h-8 w-8 text-gray-500" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Schools</p>
-                  <p className="text-2xl font-bold text-purple-600">{statistics.totalSchools}</p>
-                </div>
-                <School className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+      {/* Advanced Filters - System/Org Admins only */}
+      {user?.roles?.some(role => ['SYSTEM_ADMIN', 'ORG_ADMIN'].includes(role)) && (
+        <div className="bg-gray-50 p-4 rounded-lg border mb-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Filters & View Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="all">All Franchisees</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+            </div>
+
+            {/* Page Size Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Results per page</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="10">10 per page</option>
+                <option value="20">20 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters & Results Summary */}
+          <div className="mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStatusFilter('all');
+                setCurrentPage(1);
+              }}
+              size="sm">
+              Clear All Filters
+            </Button>
+
+            {/* Results Summary */}
+            <div className="text-sm text-gray-600">
+              Showing {filteredFranchises.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} - {Math.min(currentPage * pageSize, filteredFranchises.length)} of {filteredFranchises.length} franchisees
+            </div>
+          </div>
         </div>
       )}
 
       {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Search franchisees..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by name, region, contact person..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-10"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Franchisees Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredFranchises.map((franchise: any) => (
-          <Card key={franchise.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-blue-600" />
-                    {franchise.name}
-                  </CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">{franchise.region}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(franchise.agreementStatus)}
-                  {getStatusBadge(franchise.agreementStatus)}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        setEditingFranchise(franchise);
-                        setIsDialogOpen(true);
-                      }}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Franchise
-                      </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Franchise
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the franchise
-                              "{franchise.name}" and all associated data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteFranchiseMutation.mutate(franchise.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Contact Person */}
-              <div>
-                <span className="text-sm font-medium text-gray-900">Contact Person:</span>
-                <p className="text-sm text-gray-600">{franchise.contactPerson}</p>
-              </div>
-
-              {/* Contact Information */}
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">{franchise.contactEmail}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">{franchise.contactPhone}</span>
-              </div>
-
-              {/* Address */}
-              <div className="flex items-start space-x-2">
-                <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                <div className="text-sm text-gray-600">
-                  <p>{franchise.address}</p>
-                  <p>{franchise.city}, {franchise.state} {franchise.pincode}</p>
-                </div>
-              </div>
-
-              {/* School Count */}
-              <div className="flex items-center space-x-2">
-                <School className="h-4 w-4 text-purple-600" />
-                <span className="text-sm text-gray-600">
-                  {franchise.schoolCount || 0} school{(franchise.schoolCount || 0) !== 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {/* Agreement Status Details */}
-              {franchise.agreementAcceptedAt && (
-                <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-                  Agreement accepted on {new Date(franchise.agreementAcceptedAt).toLocaleDateString()}
-                </div>
-              )}
-
-              {franchise.agreementStatus === 'pending' && (
-                <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                  Waiting for agreement acceptance
-                </div>
-              )}
-
-              {/* Status Indicator */}
-              <div className="flex justify-between items-center pt-2">
-                <Badge variant={franchise.isActive ? "default" : "secondary"}>
-                  {franchise.isActive ? "Active" : "Inactive"}
-                </Badge>
-                <span className="text-xs text-gray-500">
-                  Created: {new Date(franchise.createdAt).toLocaleDateString()}
-                </span>
-              </div>
+      {/* Statistics Cards */}
+      {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Building2 className="text-blue-600 h-6 w-6" />
+                  </div >
+                </div >
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Total Franchisees</p>
+                  <p className="text-2xl font-semibold text-gray-900">{statistics.total}</p>
+                </div >
+              </div >
             </CardContent>
           </Card>
-        ))}
-      </div>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="text-green-600 h-6 w-6" />
+                  </div >
+                </div >
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Active</p>
+                  <p className="text-2xl font-semibold text-gray-900">{statistics.active}</p>
+                </div >
+              </div >
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Clock className="text-gray-600 h-6 w-6" />
+                  </div >
+                </div >
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Inactive</p>
+                  <p className="text-2xl font-semibold text-gray-900">{statistics.inactive}</p>
+                </div >
+              </div >
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <School className="text-purple-600 h-6 w-6" />
+                  </div >
+                </div >
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Total Schools</p>
+                  <p className="text-2xl font-semibold text-gray-900">{statistics.totalSchools}</p>
+                </div >
+              </div >
+            </CardContent>
+          </Card>
+        </div >
+      )}
+
+      {/* Franchisees Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Franchisees List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Franchisee Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact Information
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Schools
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedFranchises.map((franchise: any) => (
+                  <tr key={franchise.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{franchise.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {franchise.region} • {franchise.city}, {franchise.state}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{franchise.contactPerson}</div>
+                      <div className="text-sm text-gray-500">{franchise.contactPhone}</div>
+                      <div className="text-sm text-gray-500">{franchise.contactEmail}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm text-gray-900">
+                        <School className="h-4 w-4 text-purple-600 mr-1" />
+                        {franchise.schoolCount || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge className={franchise.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                        {franchise.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setEditingFranchise(franchise);
+                            setIsDialogOpen(true);
+                          }}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Franchise
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Franchise
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the franchise
+                                  "{franchise.name}" and all associated data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteFranchiseMutation.mutate(franchise.id)}
+                                  className="bg-red-600 hover:bg-red-700">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border rounded-lg">
+          <div className="flex items-center text-sm text-gray-700">
+            <span>
+              Showing {filteredFranchises.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} to{' '}
+              {Math.min(currentPage * pageSize, filteredFranchises.length)} of {filteredFranchises.length} franchisees
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}>
+              First
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}>
+              Previous
+            </Button>
+
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="w-8 h-8 p-0">
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}>
+              Next
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}>
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
 
       {filteredFranchises.length === 0 && !isLoading && (
         <Card className="text-center py-12">
           <CardContent>
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="h-8 w-8 text-gray-400" />
+              <Building2 className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm ? 'No franchisees found' : 'No franchisees yet'}
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No franchisees found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm 
-                ? `No franchisees match "${searchTerm}". Try adjusting your search terms.`
-                : 'Create your first franchisee to start expanding your dental care network.'
-              }
+              {searchTerm || statusFilter !== 'all'
+                ? 'Try adjusting your filters or search terms.'
+                : 'Get started by creating your first franchisee.'}
             </p>
-            {!searchTerm && (
+            {!searchTerm && statusFilter === 'all' && (
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Franchisee

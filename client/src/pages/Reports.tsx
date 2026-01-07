@@ -11,7 +11,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth.tsx';
 import { colorSchemes } from '@/lib/colorSchemes';
-import jsPDF from 'jspdf';
+
 
 export function Reports() {
   const { user } = useAuth();
@@ -31,7 +31,7 @@ export function Reports() {
     queryKey: ['/api/students'],
     queryFn: () => apiRequest('/students?pageSize=1000'), // Get all students for reports
   });
-  
+
   const students = studentsResponse?.students || [];
 
   const { data: screenings = [] } = useQuery({
@@ -86,89 +86,18 @@ export function Reports() {
     },
   });
 
-  const generatePDF = (student: any, screening: any) => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(25, 118, 210);
-    doc.text('Smile Stars India', 20, 30);
-    
-    doc.setFontSize(16);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Dental Health Report', 20, 45);
-    
-    // Student Information
-    doc.setFontSize(12);
-    doc.text(`Student Name: ${student.name}`, 20, 70);
-    doc.text(`Age: ${student.age} years`, 20, 85);
-    doc.text(`Grade: ${student.grade}`, 20, 100);
-    doc.text(`School: ${student.schoolName || 'School Name'}`, 20, 115);
-    doc.text(`Examination Date: ${new Date(screening.createdAt).toLocaleDateString()}`, 20, 130);
-    
-    // Clinical Findings
-    doc.setFontSize(14);
-    doc.text('Clinical Examination Summary', 20, 155);
-    
-    doc.setFontSize(10);
-    let yPos = 170;
-    
-    if (screening.decayedTeethCount > 0) {
-      doc.text(`• Decayed Teeth: ${screening.decayedTeethCount}`, 25, yPos);
-      yPos += 15;
-    }
-    
-    if (screening.missingTeethCount > 0) {
-      doc.text(`• Missing Teeth: ${screening.missingTeethCount}`, 25, yPos);
-      yPos += 15;
-    }
-    
-    if (screening.filledTeethCount > 0) {
-      doc.text(`• Filled Teeth: ${screening.filledTeethCount}`, 25, yPos);
-      yPos += 15;
-    }
-    
-    if (screening.stains) {
-      doc.text(`• Stains: ${screening.stains}`, 25, yPos);
-      yPos += 15;
-    }
-    
-    if (screening.calculus) {
-      doc.text(`• Calculus: ${screening.calculus}`, 25, yPos);
-      yPos += 15;
-    }
-    
-    // Recommendations
-    if (screening.preventiveMeasures) {
-      yPos += 10;
-      doc.setFontSize(12);
-      doc.text('Recommendations:', 20, yPos);
-      yPos += 15;
-      
-      doc.setFontSize(10);
-      const splitText = doc.splitTextToSize(screening.preventiveMeasures, 170);
-      doc.text(splitText, 25, yPos);
-    }
-    
-    return doc;
-  };
-
-  const downloadReport = (student: any, screening: any) => {
-    const pdf = generatePDF(student, screening);
-    pdf.save(`dental-report-${student.name.replace(/\s+/g, '-')}.pdf`);
+  const downloadReport = (report: any) => {
+    if (!report?.id) return;
+    window.location.href = `/api/reports/${report.id}/download`;
   };
 
   const generateReport = async (student: any, screening: any) => {
-    const pdf = generatePDF(student, screening);
-    const pdfData = pdf.output('datauristring').split(',')[1]; // Get base64 data
-    
     const reportData = {
       screeningId: screening.id,
       studentId: student.id,
-      pdfData,
       sentToParent: false,
     };
-    
+
     generateReportMutation.mutate(reportData);
   };
 
@@ -177,7 +106,7 @@ export function Reports() {
     const screening = screenings.find((s: any) => s.studentId === student.id && s.isCompleted);
     const report = reports.find((r: any) => r.studentId === student.id);
     const camp = camps.find((c: any) => c.id === student.campId);
-    
+
     return {
       ...student,
       screening,
@@ -386,10 +315,10 @@ export function Reports() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       {student.hasReport ? (
                         <>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
-                            onClick={() => downloadReport(student, student.screening)}
+                            onClick={() => downloadReport(student.report)}
                           >
                             <Download className="h-4 w-4" />
                           </Button>
@@ -397,8 +326,8 @@ export function Reports() {
                             <Eye className="h-4 w-4" />
                           </Button>
                           {(user?.roles?.includes('SYSTEM_ADMIN') || user?.roles?.includes('SCHOOL_ADMIN')) && !student.report.sentToParent && (
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => sendReportMutation.mutate(student.report.id)}
                               disabled={sendReportMutation.isPending}
@@ -409,8 +338,8 @@ export function Reports() {
                           )}
                         </>
                       ) : (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => generateReport(student, student.screening)}
                           disabled={generateReportMutation.isPending}
@@ -436,7 +365,7 @@ export function Reports() {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No reports available</h3>
             <p className="text-gray-600">
-              {searchTerm || selectedCamp !== 'all' 
+              {searchTerm || selectedCamp !== 'all'
                 ? 'Try adjusting your filters or search terms.'
                 : 'Complete student screenings to generate reports.'}
             </p>

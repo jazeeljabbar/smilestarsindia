@@ -8,18 +8,20 @@ export const userStatusEnum = pgEnum("user_status", ["INVITED", "PENDING", "ACTI
 export const entityTypeEnum = pgEnum("entity_type", ["ORGANIZATION", "FRANCHISEE", "SCHOOL", "STUDENT"]);
 export const entityStatusEnum = pgEnum("entity_status", ["DRAFT", "ACTIVE", "SUSPENDED", "ARCHIVED"]);
 export const roleEnum = pgEnum("role", [
-  "SYSTEM_ADMIN", 
-  "ORG_ADMIN", 
-  "FRANCHISE_ADMIN", 
-  "FRANCHISE_STAFF", 
-  "PRINCIPAL", 
-  "SCHOOL_ADMIN", 
-  "TEACHER", 
+  "SYSTEM_ADMIN",
+  "ORG_ADMIN",
+  "FRANCHISE_ADMIN",
+  "FRANCHISE_STAFF",
+  "PRINCIPAL",
+  "SCHOOL_ADMIN",
+  "TEACHER",
   "PARENT",
   "DENTIST",
   "TECHNICIAN"
 ]);
 export const relationshipEnum = pgEnum("relationship", ["MOTHER", "FATHER", "GUARDIAN", "OTHER"]);
+export const campStatusEnum = pgEnum("camp_status", ["DRAFT", "SCHEDULED", "CONSENT_COLLECTION", "ACTIVE", "COMPLETED", "CANCELLED"]);
+export const consentStatusEnum = pgEnum("consent_status", ["REQUESTED", "GRANTED", "DENIED", "REVOKED"]);
 
 // Core Tables
 
@@ -45,12 +47,12 @@ export const entities = pgTable("entities", {
   name: text("name").notNull(),
   parentId: integer("parent_id"), // Self-referencing FK for hierarchy
   status: entityStatusEnum("status").notNull().default("DRAFT"),
-  
+
   // Additional fields for different entity types
   metadata: json("metadata").$type<{
     // For ORGANIZATION
     orgDescription?: string;
-    
+
     // For FRANCHISEE
     region?: string;
     franchiseContactPerson?: string;
@@ -60,7 +62,7 @@ export const entities = pgTable("entities", {
     franchiseCity?: string;
     franchiseState?: string;
     franchisePincode?: string;
-    
+
     // For SCHOOL
     schoolAddress?: string;
     schoolCity?: string;
@@ -71,7 +73,7 @@ export const entities = pgTable("entities", {
     schoolContactEmail?: string;
     registrationNumber?: string;
     hasSubBranches?: boolean;
-    
+
     // For STUDENT
     age?: number;
     gender?: string;
@@ -81,8 +83,17 @@ export const entities = pgTable("entities", {
     parentPhone?: string;
     parentEmail?: string;
     parentOccupation?: string;
+
+    // Generic aliases (used in some places)
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    contactPerson?: string;
+    contactPhone?: string;
+    contactEmail?: string;
   }>(),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -185,6 +196,11 @@ export const magicTokens = pgTable("magic_tokens", {
     invitedBy?: number;
     firstName?: string;
     lastName?: string;
+    franchiseeId?: number;
+    franchiseeName?: string;
+    schoolId?: number;
+    schoolName?: string;
+    userId?: number;
   }>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
@@ -203,12 +219,40 @@ export const camps = pgTable("camps", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   expectedStudents: integer("expected_students").notNull(),
-  status: text("status").notNull(), // planned, active, completed
+  status: campStatusEnum("status").notNull().default("DRAFT"), // State machine managed
   description: text("description"),
   assignedDentistId: integer("assigned_dentist_id"), // FK to users with DENTIST role
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  schoolIdx: index("camps_school_idx").on(table.schoolEntityId),
+  statusIdx: index("camps_status_idx").on(table.status),
+}));
+
+// Consents table - tracks parental permission for camps
+export const consents = pgTable("consents", {
+  id: serial("id").primaryKey(),
+  campId: integer("camp_id").notNull(), // FK to camps
+  studentEntityId: integer("student_entity_id").notNull(), // FK to entities where type=STUDENT
+  status: consentStatusEnum("status").notNull().default("REQUESTED"),
+
+  // Decision details
+  grantedAt: timestamp("granted_at"),
+  deniedAt: timestamp("denied_at"),
+  denialReason: text("denial_reason"),
+
+  // Audit details
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  campIdx: index("consents_camp_idx").on(table.campId),
+  studentIdx: index("consents_student_idx").on(table.studentEntityId),
+  statusIdx: index("consents_status_idx").on(table.status),
+  // One consent record per student per camp
+  uniqueConsent: unique("camp_student_consent_unique").on(table.campId, table.studentEntityId),
+}));
 
 // Camp enrollments - links specific students to camps
 export const campEnrollments = pgTable("camp_enrollments", {
@@ -231,7 +275,7 @@ export const screenings = pgTable("screenings", {
   studentEntityId: integer("student_entity_id").notNull(), // FK to entities where type=STUDENT
   campId: integer("camp_id").notNull(),
   dentistUserId: integer("dentist_user_id").notNull(), // FK to users with DENTIST role
-  
+
   // Dental examination data
   teethPresent: json("teeth_present").$type<string[]>(),
   dentalAge: text("dental_age"),
@@ -243,7 +287,7 @@ export const screenings = pgTable("screenings", {
   filledTeeth: json("filled_teeth").$type<string[]>(),
   crownedTeethCount: integer("crowned_teeth_count").default(0),
   crownedTeeth: json("crowned_teeth").$type<string[]>(),
-  
+
   // Clinical findings
   deepGrooves: boolean("deep_grooves").default(false),
   stains: text("stains"), // +, ++, +++
@@ -253,7 +297,7 @@ export const screenings = pgTable("screenings", {
   primateSpacing: boolean("primate_spacing").default(false),
   midlineDiastema: boolean("midline_diastema").default(false),
   delayedEruption: boolean("delayed_eruption").default(false),
-  
+
   // Occlusion
   crossBiteUnilateral: boolean("cross_bite_unilateral").default(false),
   crossBiteBilateral: boolean("cross_bite_bilateral").default(false),
@@ -264,26 +308,26 @@ export const screenings = pgTable("screenings", {
   openBitePosteriorBilateral: boolean("open_bite_posterior_bilateral").default(false),
   deepBite: boolean("deep_bite").default(false),
   occlusion: text("occlusion"),
-  
+
   // Relationships
   canineRelationshipPrimary: text("canine_relationship_primary"), // class_i, class_ii, class_iii
   canineRelationshipPermanent: text("canine_relationship_permanent"),
   molarRelationshipPrimary: text("molar_relationship_primary"),
   molarRelationshipPermanent: text("molar_relationship_permanent"),
-  
+
   // Other findings
   dentalAnomalies: text("dental_anomalies"),
   abnormalFrenalAttachments: boolean("abnormal_frenal_attachments").default(false),
   developmentalDefects: text("developmental_defects"),
   habits: text("habits"),
-  
+
   // Trauma
   traumaType: text("trauma_type"), // Ellis classification I-IX
   traumaRootDevelopment: text("trauma_root_development"), // immature, mature
-  
+
   // Recommendations
   preventiveMeasures: text("preventive_measures"),
-  
+
   // Status
   isCompleted: boolean("is_completed").default(false),
   completedAt: timestamp("completed_at"),
@@ -302,6 +346,33 @@ export const reports = pgTable("reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Content Management (Twinky Corner)
+export const contentStatusEnum = pgEnum("content_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export const contentTypeEnum = pgEnum("content_type", ["ARTICLE", "VIDEO", "INFOGRAPHIC"]);
+
+export const contentItems = pgTable("content_items", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(), // unique-url-friendly-title
+  type: contentTypeEnum("type").notNull(),
+  description: text("description"), // Short summary
+  content: text("content"), // Markdown body or text content
+  mediaUrl: text("media_url"), // External URL (YouTube, S3)
+  thumbnailUrl: text("thumbnail_url"),
+  status: contentStatusEnum("status").notNull().default("DRAFT"),
+  authorId: integer("author_id"), // FK to users
+
+  viewCount: integer("view_count").default(0),
+
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index("content_status_idx").on(table.status),
+  typeIdx: index("content_type_idx").on(table.type),
+  slugIdx: index("content_slug_idx").on(table.slug),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEntitySchema = createInsertSchema(entities).omit({ id: true, createdAt: true, updatedAt: true });
@@ -313,6 +384,7 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 export const insertMagicTokenSchema = createInsertSchema(magicTokens).omit({ id: true, createdAt: true });
 export const insertCampSchema = createInsertSchema(camps).omit({ id: true, createdAt: true });
 export const insertCampEnrollmentSchema = createInsertSchema(campEnrollments).omit({ id: true, enrolledAt: true });
+export const insertConsentSchema = createInsertSchema(consents).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertScreeningSchema = createInsertSchema(screenings).omit({ id: true, createdAt: true, completedAt: true });
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, createdAt: true });
 
@@ -375,6 +447,8 @@ export type Screening = typeof screenings.$inferSelect;
 export type InsertScreening = z.infer<typeof insertScreeningSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
+export type Consent = typeof consents.$inferSelect;
+export type InsertConsent = z.infer<typeof insertConsentSchema>;
 
 // Auth types
 export type MagicLinkRequest = z.infer<typeof magicLinkRequestSchema>;
@@ -383,3 +457,8 @@ export type AcceptAgreements = z.infer<typeof acceptAgreementsSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type CreateMembership = z.infer<typeof createMembershipSchema>;
 export type InviteUser = z.infer<typeof inviteUserSchema>;
+
+// Content Schemas
+export const insertContentItemSchema = createInsertSchema(contentItems).omit({ id: true, createdAt: true, updatedAt: true, viewCount: true });
+export type ContentItem = typeof contentItems.$inferSelect;
+export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
